@@ -11,6 +11,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll to bottom on new message
@@ -28,17 +29,24 @@ export default function ChatPage() {
     setMessages((m) => [...m, userMsg]);
     setInput('');
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('http://127.0.0.1:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Server error: ${errText || res.status}`);
+      }
       const data = await res.json();
       const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: data.reply };
       setMessages((m) => [...m, aiMsg]);
     } catch (err) {
-      const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: 'Error: could not reach AI service.' };
+      const errMsg = (err as Error)?.message ?? 'Unknown error';
+      setError(errMsg);
+      const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: `Error: ${errMsg}` };
       setMessages((m) => [...m, aiMsg]);
     } finally {
       setLoading(false);
@@ -69,6 +77,11 @@ export default function ChatPage() {
           {loading && (
             <div className="message ai">
               <div className="bubble"><span className="typing" />Typing...</div>
+            </div>
+          )}
+          {error && (
+            <div className="message ai">
+              <div className="bubble" style={{color: '#b00020'}}>{error}</div>
             </div>
           )}
         </div>
