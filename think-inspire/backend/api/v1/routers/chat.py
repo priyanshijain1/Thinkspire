@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from ....services.dummy_ai import generate_reply
+from ....agent.agent import main_agent
 
 router = APIRouter()
 
@@ -16,6 +16,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    # Generate a dummy AI reply using the service layer
-    reply = generate_reply(req.message)
+    # Connect to the new agent to determine intent and response
+    result = main_agent(req.message)
+    reply = result.get("response") if isinstance(result, dict) else str(result)
     return ChatResponse(reply=reply)
