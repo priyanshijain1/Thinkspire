@@ -41,3 +41,7 @@ test-results/
 *.cer
 *.pfx
 public/static/assets/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/venv/
