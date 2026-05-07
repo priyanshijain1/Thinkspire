@@ -22,7 +22,7 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     # Connect to the new agent to determine intent and response, with session state
-    result = main_agent(req.message, req.session_id)
+    result = await main_agent(req.message, req.session_id)
     if isinstance(result, dict):
         reply = result.get("response")
         session_id = result.get("session_id")

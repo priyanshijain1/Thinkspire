@@ -7,8 +7,10 @@ Includes a simple in-memory hint system per session.
 
 from typing import Dict, Any
 import uuid
+import datetime as dt
 
 _sessions: Dict[str, Dict[str, Any]] = {}
+from ..database.mongodb import log_interaction
 
 
 def detect_intent(message: str) -> str:
@@ -38,7 +40,7 @@ def generate_response(message: str, intent: str = None) -> str:
     return "I didn't understand that. Could you rephrase?"
 
 
-def main_agent(message: str, session_id: str | None = None) -> Dict[str, Any]:
+async def main_agent(message: str, session_id: str | None = None) -> Dict[str, Any]:
     """Connect detect_intent and generate_response into a single entry point with hint state.
 
     Maintains per-session state in memory:
@@ -93,6 +95,11 @@ def main_agent(message: str, session_id: str | None = None) -> Dict[str, Any]:
     # Persist last user message/response
     sess["last_user_message"] = message
     sess["last_ai_response"] = reply
+    # Persist interaction to MongoDB (best effort, non-blocking)
+    try:
+        await log_interaction(session_id, message, reply, level, timestamp=dt.datetime.utcnow(), intent=intent)
+    except Exception:
+        pass
 
     return {
         "session_id": session_id,
