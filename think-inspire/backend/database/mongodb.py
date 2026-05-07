@@ -1,8 +1,14 @@
 import os
 import datetime as dt
 from typing import Optional
+from pathlib import Path
 
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
+
+# Load .env from backend directory
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 # Configuration from environment, with sensible defaults
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")

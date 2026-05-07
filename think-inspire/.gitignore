@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build outputs
+.next/
+out/
+
+# Production/build artifacts
+build/
+dist/
+
+# Logs
+*.log
+
+# Environment files (do not commit secrets)
+.env
+.env.*
+!.env.example
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+venv/
+.venv/
+
+# Coverage and test results
+coverage/
+test-results/
+
+# Redis dump (if local)
+dump.rdb
