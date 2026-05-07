@@ -18,6 +18,16 @@ dist/
 .env.*
 !.env.example
 
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+venv/
+.venv/
+think-inspire/venv/
+dump.rdb
+
 # IDEs and editors
 .vscode/
 .idea/
