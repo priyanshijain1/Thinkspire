@@ -2,14 +2,14 @@
 
 This is a non-AI placeholder to demonstrate the integration point
 between the frontend and backend without relying on external services.
-Includes a simple in-memory hint system per session.
+Includes a Redis-backed hint system per session.
 """
 
 from typing import Dict, Any
 import uuid
 import datetime as dt
 
-_sessions: Dict[str, Dict[str, Any]] = {}
+from ..sessions.redis_session import load_session, save_session
 from ..database.mongodb import log_interaction
 
 
@@ -32,7 +32,7 @@ def generate_response(message: str, intent: str = None) -> str:
     if intent == "greeting":
         return "Hello! How can I assist you today?"
     if intent == "weather":
-        return "I can't fetch weather data yet, but I can guide you on how to check it."
+        return "I can't fetch weather data yet, but I can show you how to check it."
     if intent == "help":
         return "Sure—tell me what you need help with and I'll assist."
     if intent == "question":
@@ -43,23 +43,30 @@ def generate_response(message: str, intent: str = None) -> str:
 async def main_agent(message: str, session_id: str | None = None) -> Dict[str, Any]:
     """Connect detect_intent and generate_response into a single entry point with hint state.
 
-    Maintains per-session state in memory:
-      - hint_level (0-3)
-      - last_user_message
-      - repeat_count
+    Uses Redis for session state.
     Returns: dict with keys session_id, intent, response, hint_level
     """
-    # Initialize or retrieve session
-    if not session_id or session_id not in _sessions:
+    # Load session from Redis or create new
+    if session_id:
+        sess = await load_session(session_id)
+        if sess:
+            session_id = session_id
+        else:
+            session_id = str(uuid.uuid4())
+            sess = {
+                "hint_level": 0,
+                "last_user_message": None,
+                "last_ai_response": "",
+                "repeat_count": 0,
+            }
+    else:
         session_id = str(uuid.uuid4())
-        _sessions[session_id] = {
+        sess = {
             "hint_level": 0,
             "last_user_message": None,
             "last_ai_response": "",
             "repeat_count": 0,
         }
-
-    sess = _sessions[session_id]
 
     # Track repeats to determine if user is stuck
     if (sess.get("last_user_message") or "") == (message or ""):
@@ -83,18 +90,17 @@ async def main_agent(message: str, session_id: str | None = None) -> Dict[str, A
     elif level == 1:
         reply = f"Hint: Try clarifying your goal. {base_response}"
     elif level == 2:
-        reply = (
-            f"Strong Hint: Break the task into steps. Start by describing the desired outcome. "
-            f"{base_response}"
-        )
+        reply = f"Strong Hint: Break the task into steps. Start by describing the desired outcome. {base_response}"
     else:
-        reply = (
-            f"Near Solution: Here's a concrete path you can try. Step 1: ... Step 2: ... {base_response}"
-        )
+        reply = f"Near Solution: Here's a concrete path you can try. Step 1: ... Step 2: ... {base_response}"
 
     # Persist last user message/response
     sess["last_user_message"] = message
     sess["last_ai_response"] = reply
+
+    # Save updated session to Redis with TTL
+    await save_session(session_id, sess, ttl_days=7)
+
     # Persist interaction to MongoDB (best effort, non-blocking)
     try:
         await log_interaction(session_id, message, reply, level, timestamp=dt.datetime.utcnow(), intent=intent)
