@@ -1,10 +1,22 @@
-"""Simple agent module for intent detection and response generation.
+"""Learning Agent - Phase 1: Intelligent Response Strategy System
 
-This uses Gemini AI for intelligent responses.
-Includes a Redis-backed hint system per session.
+This is the core of your "AI Learning Tutor" - replaces simple hint levels with
+adaptive teaching strategies that control AI behavior.
+
+Teaching Modes:
+- EXPLAINER: Direct explanations for new concepts
+- TUTOR: Socratic method - asks questions before answering
+- PRACTICE: Generates problems to solve
+- DISCOVERY: Guided exploration
+
+Hint Levels (now Learning Levels):
+- 0 (NOVICE): Direct answer + explanation
+- 1 (LEARNER): Ask what they think first + hints
+- 2 (PRACTICER): Give practice problems
+- 3 (MASTER): Challenge questions
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import uuid
 import datetime as dt
 
@@ -13,96 +25,273 @@ from ..database.mongodb import log_interaction
 from ..services.ai_service import generate_response as ai_generate_response
 
 
-def detect_intent(message: str) -> str:
-    m = (message or "").lower()
-    if any(greet in m for greet in ["hello", "hi", "hey", "greetings"]):
-        return "greeting"
-    if "weather" in m:
-        return "weather"
-    if "help" in m:
-        return "help"
-    if "?" in message or m.endswith("?"):
-        return "question"
-    return "unknown"
+# ============== TEACHING STRATEGIES ==============
+
+TEACHING_MODES = {
+    "EXPLAINER": {
+        "description": "Direct explanations for new concepts",
+        "system_prompt": """You are an expert tutor who gives clear, direct explanations.
+- Start with the core concept
+- Use simple language
+- Give 1-2 examples
+- Keep it concise (2-3 paragraphs max)""",
+    },
+    "TUTOR": {
+        "description": "Socratic method - guide through questions",
+        "system_prompt": """You are a Socratic tutor who helps students discover answers themselves.
+- NEVER give direct answers
+- Ask guiding questions instead
+- Break problem into smaller steps
+- Ask "What do you think?" or "How would you approach this?"
+- Lead them to discover the answer""",
+    },
+    "PRACTICE": {
+        "description": "Generate practice problems",
+        "system_prompt": """You are a practice problem generator.
+- First briefly acknowledge their question
+- Then generate 1-2 practice problems at appropriate difficulty
+- Include the solution hidden (marked)
+- Encourage them to try first""",
+    },
+    "DISCOVERY": {
+        "description": "Guided exploration and discovery",
+        "system_prompt": """You guide students through discovery-based learning.
+- Present a scenario or puzzle
+- Ask them to explore and hypothesize
+- Give gentle nudges without full answers
+- Help them reach conclusions themselves""",
+    }
+}
 
 
-def generate_response(message: str, intent: str = None) -> str:
-    if not intent:
-        intent = detect_intent(message)
-    if intent == "greeting":
-        return "Hello! How can I assist you today?"
-    if intent == "weather":
-        return "I can't fetch weather data yet, but I can show you how to check it."
-    if intent == "help":
-        return "Sure—tell me what you need help with and I'll assist."
-    if intent == "question":
-        return "I'll do my best to answer your question."
-    return "I didn't understand that. Could you rephrase?"
+# Learning level to mode mapping
+LEARNING_MODE_MAP = {
+    0: "EXPLAINER",  # New user = direct
+    1: "TUTOR",     # Need guidance = Socratic
+    2: "PRACTICE",    # Need practice = problems
+    3: "DISCOVERY",   # Advanced = discovery
+}
 
+
+# ============== HELPER FUNCTIONS ==============
+
+def determine_learning_level(session: dict) -> int:
+    """Determine user's learning level based on session data."""
+    # Base on message count + correctness
+    messages_count = session.get("messages_count", 0)
+    correct_streak = session.get("correct_streak", 0)
+    struggle_count = session.get("struggle_count", 0)
+    
+    # New user starts at level 0
+    if messages_count < 3:
+        return 0
+    
+    # If struggling often, lower level
+    if struggle_count > 3:
+        return max(0, (session.get("hint_level", 0) - 1))
+    
+    # If doing well consistently, increase level
+    if correct_streak > 5:
+        return min(3, (session.get("hint_level", 0) + 1))
+    
+    # Maintain current level
+    return session.get("hint_level", 0)
+
+
+def get_teaching_strategy(learning_level: int, message: str) -> tuple[str, str]:
+    """Get teaching mode and system prompt based on learning level.
+    
+    Returns:
+        (teaching_mode, system_prompt)
+    """
+    mode = LEARNING_MODE_MAP.get(learning_level, "EXPLAINER")
+    strategy = TEACHING_MODES[mode]
+    
+    # Check if it's a quick question vs learning topic
+    quick_questions = ["what is", "define", "explain", "who is", "when did"]
+    is_quick = any(q in message.lower() for q in quick_questions)
+    
+    # Quick factual questions = direct mode regardless
+    if is_quick and learning_level == 0:
+        mode = "EXPLAINER"
+        strategy = TEACHING_MODES[mode]
+    
+    return mode, strategy["system_prompt"]
+
+
+def analyze_struggle(session: dict, message: str) -> dict:
+    """Analyze if user is struggling and return intervention data."""
+    prev_message = session.get("last_user_message", "")
+    repeat_count = session.get("repeat_count", 0)
+    struggle_count = session.get("struggle_count", 0)
+    
+    is_repeating = prev_message and (message.strip().lower() == prev_message.strip().lower())
+    is_similar_question = False  # Could add NLP here
+    
+    return {
+        "is_struggling": is_repeating or is_similar_question or struggle_count > 2,
+        "repeat_count": repeat_count + 1 if is_repeating else 0,
+        "struggle_indicator": struggle_count,
+    }
+
+
+# ============== MAIN AGENT ==============
 
 async def main_agent(message: str, session_id: str | None = None) -> Dict[str, Any]:
-    """Connect detect_intent and generate_response into a single entry point with hint state.
-
-    Uses Redis for session state.
-    Returns: dict with keys session_id, intent, response, hint_level
+    """Main learning agent with intelligent response strategy.
+    
+    Features:
+    - Adaptive learning level based on user progress
+    - Teaching mode selection based on learning level
+    - Progress tracking
+    - Struggle detection
+    - Analytics logging
+    
+    Returns:
+        dict with: session_id, intent, response, learning_level, teaching_mode, strategy
     """
-    # Load session from Redis or create new
+    # ===== 1. LOAD OR CREATE SESSION =====
     if session_id:
         sess = await load_session(session_id)
         if sess:
             session_id = session_id
         else:
             session_id = str(uuid.uuid4())
-            sess = {
-                "hint_level": 0,
-                "last_user_message": None,
-                "last_ai_response": "",
-                "repeat_count": 0,
-            }
+            sess = _create_new_session()
     else:
         session_id = str(uuid.uuid4())
-        sess = {
-            "hint_level": 0,
-            "last_user_message": None,
-            "last_ai_response": "",
-            "repeat_count": 0,
-        }
-
-    # Track repeats to determine if user is stuck
-    if (sess.get("last_user_message") or "") == (message or ""):
-        sess["repeat_count"] = sess.get("repeat_count", 0) + 1
+        sess = _create_new_session()
+    
+    # ===== 2. ANALYZE STRUGGLE =====
+    struggle_data = analyze_struggle(sess, message)
+    
+    # Update struggle count
+    if struggle_data["is_struggling"]:
+        sess["struggle_count"] = sess.get("struggle_count", 0) + 1
+        sess["repeat_count"] = struggle_data["repeat_count"]
     else:
+        sess["struggle_count"] = 0
         sess["repeat_count"] = 0
+    
+    # ===== 3. DETERMINE LEARNING LEVEL =====
+    learning_level = determine_learning_level(sess)
+    sess["learning_level"] = learning_level
+    
+    # ===== 4. GET TEACHING STRATEGY =====
+    teaching_mode, system_prompt = get_teaching_strategy(learning_level, message)
+    sess["teaching_mode"] = teaching_mode
+    
+    # ===== 5. BUILD CONVERSATION HISTORY =====
+    # Get last few messages for context (for better AI responses)
+    history = []
+    if sess.get("message_history"):
+        # Take last 5 messages
+        history = sess["message_history"][-5:]
+    
+    # ===== 6. GENERATE AI RESPONSE =====
+    try:
+        # Build full prompt with teaching strategy
+        full_system = f"""{system_prompt}
 
-    # Determine intent (optional - for analytics)
-    intent = detect_intent(message)
+Current learning level: {learning_level}/3 ({TEACHING_MODES[teaching_mode]['description']})
+User topic: {sess.get('current_topic', 'general')}
 
-    # Get AI response from Groq
-    ai_response = await ai_generate_response(message)
+Remember:
+- Adapt your explanation to their learning level
+- {f'User has asked {sess.get("struggle_count", 0)} similar questions' if sess.get('struggle_count', 0) > 1 else 'This appears to be a new topic'}
+- Be encouraging and supportive"""
 
-    # Build response according to hint level (optional enhancement system)
-    # For now, we use the AI response directly
-    level = sess.get("hint_level", 0)
-
-    # Use AI response as-is ( Gemini provides good responses)
+        ai_response = await ai_generate_response(
+            user_message=message,
+            conversation_history=history,
+            system_prompt=full_system
+        )
+    except Exception as e:
+        ai_response = f"I'm having trouble responding right now. Please try again. ({str(e)[:50]})"
+    
     reply = ai_response
-
-    # Persist last user message/response
+    
+    # ===== 7. UPDATE SESSION DATA =====
+    # Update message history
+    current_history = sess.get("message_history", [])
+    current_history.append({"role": "user", "content": message})
+    current_history.append({"role": "assistant", "content": reply})
+    # Keep last 10 messages
+    sess["message_history"] = current_history[-10:]
+    
+    # Update counters
+    sess["messages_count"] = sess.get("messages_count", 0) + 1
     sess["last_user_message"] = message
     sess["last_ai_response"] = reply
-
-    # Save updated session to Redis with TTL
+    sess["current_topic"] = _extract_topic(message)
+    
+    # ===== 8. SAVE SESSION =====
     await save_session(session_id, sess, ttl_days=7)
-
-    # Persist interaction to MongoDB (best effort, non-blocking)
+    
+    # ===== 9. LOG INTERACTION =====
     try:
-        await log_interaction(session_id, message, reply, level, timestamp=dt.datetime.utcnow(), intent=intent)
+        await log_interaction(
+            session_id=session_id,
+            user_message=message,
+            ai_response=reply,
+            hint_level=learning_level,
+            timestamp=dt.datetime.utcnow(),
+            intent=teaching_mode,  # Log strategy used instead of raw intent
+        )
     except Exception:
         pass
-
+    
+    # ===== 10. RETURN RESPONSE =====
     return {
         "session_id": session_id,
-        "intent": intent,
+        "intent": teaching_mode,  # Teaching mode as intent (for analytics)
         "response": reply,
-        "hint_level": level,
+        "learning_level": learning_level,
+        "teaching_mode": teaching_mode,
+        "strategy": TEACHING_MODES[teaching_mode]["description"],
+        "topic": sess.get("current_topic", "general"),
     }
+
+
+def _create_new_session() -> dict:
+    """Create a new learning session."""
+    return {
+        "learning_level": 0,
+        "hint_level": 0,
+        "teaching_mode": "EXPLAINER",
+        "messages_count": 0,
+        "message_history": [],
+        "last_user_message": None,
+        "last_ai_response": None,
+        "current_topic": "general",
+        "struggle_count": 0,
+        "repeat_count": 0,
+        "correct_streak": 0,
+    }
+
+
+def _extract_topic(message: str) -> str:
+    """Simple topic extraction - can be enhanced with NLP."""
+    message = message.lower()
+    
+    topics = {
+        "programming": ["code", "python", "java", "javascript", "programming"],
+        "math": ["calculate", "equation", "formula", "math"],
+        "science": ["science", "physics", "chemistry", "biology"],
+        "history": ["history", "when", "year", "century"],
+        "language": ["grammar", "language", "syntax", "words"],
+    }
+    
+    for topic, keywords in topics.items():
+        if any(kw in message for kw in keywords):
+            return topic
+    
+    return "general"
+
+
+# Backwards compatibility - expose detect_intent for any legacy code
+def detect_intent(message: str) -> str:
+    """Legacy intent detection - now returns teaching mode."""
+    _, system_prompt = get_teaching_strategy(0, message)
+    # Return the teaching mode as "intent"
+    return "learning_interaction"
