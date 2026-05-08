@@ -182,28 +182,49 @@ async def main_agent(message: str, session_id: str | None = None) -> Dict[str, A
     sess["teaching_mode"] = teaching_mode
     
     # ===== 5. BUILD CONVERSATION HISTORY =====
-    # Get last few messages for context (for better AI responses)
+    # Get last messages for context (last 15 messages = ~8 turns)
     history = []
     if sess.get("message_history"):
-        # Take last 5 messages
-        history = sess["message_history"][-5:]
+        # Take last 15 messages for better context
+        history = sess["message_history"][-15:]
+    
+    # Format history for AI - convert to conversation format
+    formatted_history = []
+    for msg in history:
+        role = "user" if msg.get("role") == "user" else "assistant"
+        formatted_history.append({
+            "role": role,
+            "content": msg.get("content", "")
+        })
     
     # ===== 6. GENERATE AI RESPONSE =====
     try:
-        # Build full prompt with teaching strategy
+        # Build context summary for AI
+        context_summary = f"""
+User's Learning Level: {learning_level}/3
+Topic: {sess.get('current_topic', 'general')}
+Questions Asked: {sess.get('messages_count', 0)}
+This Session: {sess.get('struggle_count', 0)} similar questions
+
+{'Recent conversation:' if formatted_history else 'This is the start of the conversation.'}
+{_format_history_for_ai(formatted_history) if formatted_history else ''}
+
+Current question: {message}
+"""
+        
         full_system = f"""{system_prompt}
 
-Current learning level: {learning_level}/3 ({TEACHING_MODES[teaching_mode]['description']})
-User topic: {sess.get('current_topic', 'general')}
+{context_summary}
 
-Remember:
-- Adapt your explanation to their learning level
-- {f'User has asked {sess.get("struggle_count", 0)} similar questions' if sess.get('struggle_count', 0) > 1 else 'This appears to be a new topic'}
-- Be encouraging and supportive"""
+Guidelines:
+- Consider the conversation history
+- Match teaching style to learning level
+- Be encouraging
+- Don't reveal answers unless in PRACTICE mode"""
 
         ai_response = await ai_generate_response(
             user_message=message,
-            conversation_history=history,
+            conversation_history=formatted_history,
             system_prompt=full_system
         )
     except Exception as e:
@@ -244,12 +265,14 @@ Remember:
     # ===== 10. RETURN RESPONSE =====
     return {
         "session_id": session_id,
-        "intent": teaching_mode,  # Teaching mode as intent (for analytics)
+        "intent": teaching_mode,
         "response": reply,
         "learning_level": learning_level,
         "teaching_mode": teaching_mode,
         "strategy": TEACHING_MODES[teaching_mode]["description"],
         "topic": sess.get("current_topic", "general"),
+        "messages_count": sess.get("messages_count", 0),
+        "conversation_turns": len(formatted_history) // 2 if formatted_history else 0,
     }
 
 
@@ -295,3 +318,19 @@ def detect_intent(message: str) -> str:
     _, system_prompt = get_teaching_strategy(0, message)
     # Return the teaching mode as "intent"
     return "learning_interaction"
+
+
+# ============== HELPER FUNCTIONS ==============
+
+def _format_history_for_ai(history: list) -> str:
+    """Format conversation history for AI context display."""
+    if not history:
+        return ""
+    
+    lines = []
+    for msg in history[-10:]:  # Last 10 messages
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        content = msg.get("content", "")[:200]  # Truncate long messages
+        lines.append(f"{role}: {content}")
+    
+    return "\n".join(lines)
