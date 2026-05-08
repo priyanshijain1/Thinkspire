@@ -1,16 +1,16 @@
 """Simple agent module for intent detection and response generation.
 
-This is a non-AI placeholder to demonstrate the integration point
-between the frontend and backend without relying on external services.
+This uses Gemini AI for intelligent responses.
 Includes a Redis-backed hint system per session.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 import uuid
 import datetime as dt
 
 from ..sessions.redis_session import load_session, save_session
 from ..database.mongodb import log_interaction
+from ..services.ai_service import generate_response as ai_generate_response
 
 
 def detect_intent(message: str) -> str:
@@ -74,25 +74,18 @@ async def main_agent(message: str, session_id: str | None = None) -> Dict[str, A
     else:
         sess["repeat_count"] = 0
 
-    # Determine intent and base response
+    # Determine intent (optional - for analytics)
     intent = detect_intent(message)
-    base_response = generate_response(message, intent)
 
-    # Upgrade hint level if user repeats enough
-    if sess["repeat_count"] >= 2 and sess["hint_level"] < 3:
-        sess["hint_level"] += 1
+    # Get AI response from Groq
+    ai_response = await ai_generate_response(message)
 
-    level = sess["hint_level"]
+    # Build response according to hint level (optional enhancement system)
+    # For now, we use the AI response directly
+    level = sess.get("hint_level", 0)
 
-    # Build response according to hint level
-    if level == 0:
-        reply = base_response
-    elif level == 1:
-        reply = f"Hint: Try clarifying your goal. {base_response}"
-    elif level == 2:
-        reply = f"Strong Hint: Break the task into steps. Start by describing the desired outcome. {base_response}"
-    else:
-        reply = f"Near Solution: Here's a concrete path you can try. Step 1: ... Step 2: ... {base_response}"
+    # Use AI response as-is ( Gemini provides good responses)
+    reply = ai_response
 
     # Persist last user message/response
     sess["last_user_message"] = message
