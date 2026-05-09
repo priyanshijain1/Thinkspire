@@ -1,18 +1,22 @@
+import os
+import sys
+from pathlib import Path
+
+backend_dir = Path(__file__).parent
+sys.path.insert(0, str(backend_dir))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
-from pathlib import Path
-from .api.v1.routers.chat import router as chat_router
 
-# Load .env from backend directory
-env_path = Path(__file__).parent / ".env"
-load_dotenv(env_path)
+load_dotenv(backend_dir / ".env")
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 app = FastAPI(title="Think-Inspire Backend")
 
-# Allow local frontend (Next.js dev) to call this API
-origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+origins = [FRONTEND_URL]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -21,19 +25,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers with /api/v1 prefix
+from api.v1.routers.chat import router as chat_router
+from api.v1.routers.auth import router as auth_router
+
+app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(chat_router, prefix="/api/v1", tags=["v1"])
 
 
 @app.get("/health")
 async def health_check():
-    from .services.ai_service import is_configured
+    from services.ai_service import is_configured
     return JSONResponse({"status": "ok", "ai_configured": is_configured()})
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    from .sessions.redis_session import close_client
+    from sessions.redis_session import close_client
     await close_client()
 
 

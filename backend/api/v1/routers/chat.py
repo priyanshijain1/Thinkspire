@@ -1,12 +1,24 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request, Response, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from typing import Optional
 
-from ....agent.agent import main_agent
-from ....services.error_handling import check_rate_limit
+from agent.agent import main_agent
+from services.error_handling import check_rate_limit
+from services.auth_service import get_user_from_token
 
 router = APIRouter()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """Verify JWT token."""
+    user = get_user_from_token(token)
+    if not user:
+        raise JSONResponse(status_code=401, detail="Invalid or expired token")
+    return user
 
 
 class ChatRequest(BaseModel):
@@ -28,7 +40,7 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest, request: Request):
+async def chat(req: ChatRequest, request: Request, user: dict = Depends(get_current_user)):
     """Learning chat endpoint with error handling and rate limiting."""
     # Check rate limit (simple IP-based)
     client_ip = request.client.host if request.client else "anonymous"
@@ -89,9 +101,9 @@ async def chat(req: ChatRequest, request: Request):
 
 
 @router.get("/modes")
-async def get_teaching_modes():
+async def get_teaching_modes(user: dict = Depends(get_current_user)):
     """Get available teaching modes."""
-    from ....agent.agent import TEACHING_MODES
+    from agent.agent import TEACHING_MODES
     return {
         "modes": [
             {
@@ -104,9 +116,9 @@ async def get_teaching_modes():
 
 
 @router.get("/progress/{session_id}")
-async def get_session_progress(session_id: str):
+async def get_session_progress(session_id: str, user: dict = Depends(get_current_user)):
     """Get progress for a specific session."""
-    from ....sessions.redis_session import load_session
+    from sessions.redis_session import load_session
     
     session = await load_session(session_id)
     
@@ -126,7 +138,7 @@ async def get_session_progress(session_id: str):
 @router.get("/health")
 async def health_check():
     """Health check endpoint."""
-    from ....services.ai_service import is_configured
+    from services.ai_service import is_configured
     
     return {
         "status": "ok",

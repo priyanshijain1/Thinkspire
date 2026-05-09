@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Message = {
   id: string;
@@ -16,7 +17,6 @@ type ChatApiResponse = {
   topic?: string;
 };
 
-// API URL from environment - defaults to localhost for dev
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 export default function ChatPage() {
@@ -25,13 +25,23 @@ export default function ChatPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('auth_token');
+    if (!storedToken) {
+      router.push('/login');
+      return;
+    }
+    setToken(storedToken);
+  }, [router]);
 
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [messages.length]);
 
-  // Seed welcome if no messages yet
   useEffect(() => {
     if (messages.length === 0) {
       const welcome: Message = { id: 'welcome', from: 'ai', text: 'Hi there! How can I help you today?' };
@@ -42,22 +52,35 @@ export default function ChatPage() {
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const text = input.trim();
-    if (!text) return;
+    if (!text || !token) return;
+
     const userMsg: Message = { id: Date.now().toString(), from: 'user', text };
     setMessages((m) => [...m, userMsg]);
     setInput('');
     setError(null);
     setLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/api/v1/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ message: text, session_id: sessionId }),
       });
+
+      if (res.status === 401) {
+        localStorage.removeItem('auth_token');
+        router.push('/login');
+        return;
+      }
+
       if (!res.ok) {
         const errText = await res.text();
         throw new Error(`Server error: ${errText || res.status}`);
       }
+
       const data: ChatApiResponse = await res.json();
       if (data.session_id) setSessionId(data.session_id);
       const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: data.reply };
@@ -72,10 +95,18 @@ export default function ChatPage() {
     }
   };
 
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    router.push('/login');
+  };
+
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <h2>AI Chat</h2>
+        <button onClick={logout} style={{ padding: '4px 12px' }}>Logout</button>
+      </div>
       <div className="chat-container" style={{ height: '70vh' }}>
-        <div className="chat-header">AI Chat</div>
         <div className="message-area" ref={scroller} aria-label="messages" role="log">
           {messages.map((m) => (
             <div key={m.id} className={`message ${m.from}`}>

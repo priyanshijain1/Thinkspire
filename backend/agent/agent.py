@@ -20,10 +20,10 @@ from typing import Dict, Any, List, Optional
 import uuid
 import datetime as dt
 
-from ..sessions.redis_session import load_session, save_session
-from ..database.mongodb import log_interaction
-from ..services.ai_service import generate_response as ai_generate_response
-from ..services.error_handling import handle_ai_error, validate_message, get_fallback_response, check_rate_limit
+from sessions.redis_session import load_session, save_session
+from database.mongodb import log_interaction
+from services.ai_service import generate_response as ai_generate_response
+from services.error_handling import handle_ai_error, validate_message, get_fallback_response, check_rate_limit
 
 
 # ============== TEACHING STRATEGIES ==============
