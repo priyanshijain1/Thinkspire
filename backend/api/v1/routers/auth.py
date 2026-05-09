@@ -8,7 +8,8 @@ from datetime import timedelta
 from services.auth_service import (
     authenticate_user,
     create_access_token,
-    USERS_DB,
+    get_all_users,
+    seed_users,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
@@ -27,10 +28,15 @@ class User(BaseModel):
     role: str
 
 
+@router.on_event("startup")
+async def startup():
+    await seed_users()
+
+
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """Login endpoint - returns JWT token."""
-    user = authenticate_user(form_data.username, form_data.password)
+    user = await authenticate_user(form_data.username, form_data.password)
     
     if not user:
         raise HTTPException(status_code=401, detail="Incorrect username or password")
@@ -57,5 +63,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 @router.get("/users")
 async def list_users():
-    """List available users (for testing)."""
-    return {"users": list(USERS_DB.keys())}
+    """List available users."""
+    users = await get_all_users()
+    return {"users": users}
