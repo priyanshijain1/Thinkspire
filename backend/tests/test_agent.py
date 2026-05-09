@@ -1,80 +1,139 @@
 import pytest
-from unittest.mock import AsyncMock, patch
-
 import sys
 import os
 
-# Ensure backend is importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
-from backend.agent.agent import detect_intent, generate_response, main_agent
+# Add backend to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class TestDetectIntent:
-    @pytest.mark.parametrize(
-        "message,expected",
-        [
-            ("hello", "greeting"),
-            ("Hi there", "greeting"),
-            ("hey", "greeting"),
-            ("greetings", "greeting"),
-            ("what's the weather", "weather"),
-            ("help me", "help"),
-            ("how do I fix this?", "question"),
-            ("some random text", "unknown"),
-        ],
-    )
-    def test_detect_intent(self, message: str, expected: str):
-        assert detect_intent(message) == expected
+    """Test intent detection."""
+    
+    def test_greeting_intent(self):
+        """Test greeting detection."""
+        from backend.agent.agent import detect_intent
+        assert detect_intent("hello") == "learning_interaction"
+        assert detect_intent("hi there") == "learning_interaction"
+    
+    def test_question_intent(self):
+        """Test question detection."""
+        from backend.agent.agent import detect_intent
+        result = detect_intent("what is python?")
+        assert result == "learning_interaction"
 
 
-class TestGenerateResponse:
-    def test_greeting_response(self):
-        response = generate_response("hello", intent="greeting")
-        assert "Hello" in response
-
-    def test_weather_response(self):
-        response = generate_response("weather", intent="weather")
-        assert "weather" in response.lower() or "check" in response.lower()
-
-    def test_unknown_response(self):
-        response = generate_response("foobar", intent=None)
-        assert "rephrase" in response.lower() or "understand" in response.lower()
-
-
-class TestMainAgent:
-    @pytest.mark.asyncio
-    @patch("backend.agent.agent.load_session", new_callable=AsyncMock)
-    @patch("backend.agent.agent.save_session", new_callable=AsyncMock)
-    @patch("backend.agent.agent.log_interaction", new_callable=AsyncMock)
-    async def test_new_session(self, mock_log, mock_save, mock_load):
-        mock_load.return_value = None
-
-        result = await main_agent("hello")
-
-        assert "session_id" in result
-        assert result["intent"] == "greeting"
-        assert result["hint_level"] == 0
-        assert "response" in result
-
-        mock_save.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch("backend.agent.agent.load_session", new_callable=AsyncMock)
-    @patch("backend.agent.agent.save_session", new_callable=AsyncMock)
-    @patch("backend.agent.agent.log_interaction", new_callable=AsyncMock)
-    async def test_repeat_triggers_hint(self, mock_log, mock_save, mock_load):
-        # First call returns no session, second call returns session with repeat_count=1
-        mock_load.side_effect = [None, {"hint_level": 0, "last_user_message": "hello", "last_ai_response": "Hi", "repeat_count": 1}]
-
-        # First call creates session
-        await main_agent("hello")
-        # Second call should increase hint_level because repeat_count >= 2
-        result = await main_agent("hello")
-
-        assert result["hint_level"] == 1
-        mock_save.assert_called()
+class TestTeachingModes:
+    """Test teaching modes configuration."""
+    
+    def test_teaching_modes_exist(self):
+        """Test all teaching modes are defined."""
+        from backend.agent.agent import TEACHING_MODES
+        assert "EXPLAINER" in TEACHING_MODES
+        assert "TUTOR" in TEACHING_MODES
+        assert "PRACTICE" in TEACHING_MODES
+        assert "DISCOVERY" in TEACHING_MODES
+    
+    def test_teaching_mode_descriptions(self):
+        """Test teaching modes have descriptions."""
+        from backend.agent.agent import TEACHING_MODES
+        for mode, config in TEACHING_MODES.items():
+            assert "description" in config
+            assert "system_prompt" in config
+    
+    def test_learning_mode_map(self):
+        """Test learning level mapping."""
+        from backend.agent.agent import LEARNING_MODE_MAP
+        assert LEARNING_MODE_MAP[0] == "EXPLAINER"
+        assert LEARNING_MODE_MAP[1] == "TUTOR"
+        assert LEARNING_MODE_MAP[2] == "PRACTICE"
+        assert LEARNING_MODE_MAP[3] == "DISCOVERY"
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+class TestExtractTopic:
+    """Test topic extraction."""
+    
+    def test_programming_topic(self):
+        """Test programming topic detection."""
+        from backend.agent.agent import _extract_topic
+        assert _extract_topic("how to write python code") == "programming"
+        assert _extract_topic("javascript function") == "programming"
+    
+    def test_math_topic(self):
+        """Test math topic detection."""
+        from backend.agent.agent import _extract_topic
+        assert _extract_topic("calculate this equation") == "math"
+        assert _extract_topic("what is the formula") == "math"
+    
+    def test_general_topic(self):
+        """Test general topic default."""
+        from backend.agent.agent import _extract_topic
+        assert _extract_topic("random text") == "general"
+
+
+class TestValidation:
+    """Test input validation."""
+    
+    def test_valid_message(self):
+        """Test valid message passes."""
+        from backend.services.error_handling import validate_message
+        is_valid, error = validate_message("Hello world")
+        assert is_valid is True
+        assert error is None
+    
+    def test_empty_message(self):
+        """Test empty message fails."""
+        from backend.services.error_handling import validate_message
+        is_valid, error = validate_message("")
+        assert is_valid is False
+        assert error is not None
+    
+    def test_too_short_message(self):
+        """Test too short message fails."""
+        from backend.services.error_handling import validate_message
+        is_valid, error = validate_message("a")
+        assert is_valid is False
+    
+    def test_too_long_message(self):
+        """Test too long message fails."""
+        from backend.services.error_handling import validate_message
+        long_message = "a" * 6000
+        is_valid, error = validate_message(long_message)
+        assert is_valid is False
+
+
+class TestRateLimiter:
+    """Test rate limiting."""
+    
+    def test_rate_limiter_allows_requests(self):
+        """Test rate limiter allows requests under limit."""
+        from backend.services.error_handling import RateLimiter
+        limiter = RateLimiter(max_requests=10, window_seconds=60)
+        
+        # Should allow first 10 requests
+        for i in range(10):
+            assert limiter.is_allowed("test_user") is True
+    
+    def test_rate_limiter_blocks_over_limit(self):
+        """Test rate limiter blocks over limit."""
+        from backend.services.error_handling import RateLimiter
+        limiter = RateLimiter(max_requests=3, window_seconds=60)
+        
+        # First 3 should pass
+        assert limiter.is_allowed("test_user") is True
+        assert limiter.is_allowed("test_user") is True
+        assert limiter.is_allowed("test_user") is True
+        
+        # 4th should fail
+        assert limiter.is_allowed("test_user") is False
+    
+    def test_different_users_separate_limits(self):
+        """Test different users have separate limits."""
+        from backend.services.error_handling import RateLimiter
+        limiter = RateLimiter(max_requests=2, window_seconds=60)
+        
+        assert limiter.is_allowed("user1") is True
+        assert limiter.is_allowed("user1") is True
+        assert limiter.is_allowed("user1") is False  # user1 blocked
+        
+        # user2 should still be allowed
+        assert limiter.is_allowed("user2") is True
