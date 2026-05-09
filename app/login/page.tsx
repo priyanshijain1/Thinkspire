@@ -1,6 +1,6 @@
 "use client";
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -10,6 +10,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isSignup = searchParams.get('mode') === 'signup';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,38 +44,84 @@ export default function LoginPage() {
     }
   };
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Signup failed');
+      }
+
+      const data = await res.json();
+      alert(`Welcome ${data.username}! Now login.`);
+      router.push('/login');
+    } catch (err) {
+      setError((err as Error).message || 'Signup failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="container" style={{ paddingTop: 40 }}>
-      <h1>Think-Inspire Login</h1>
-      <form onSubmit={handleLogin} style={{ maxWidth: 300, margin: '0 auto' }}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', marginBottom: 4 }}>Username</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            style={{ width: '100%', padding: 8 }}
-          />
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', marginBottom: 4 }}>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: 8 }}
-          />
-        </div>
-        {error && <p style={{ color: 'red', marginBottom: 16 }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ padding: '8px 24px' }}>
-          {loading ? 'Logging in...' : 'Login'}
-        </button>
-      </form>
-      <p style={{ marginTop: 20, fontSize: 14, color: '#666' }}>
-        Demo: admin / admin123
-      </p>
+    <div className="login-container">
+      <div className="login-box">
+        <h1>{isSignup ? 'Sign Up' : 'Login'}</h1>
+        
+        <p className="subtitle">
+          {isSignup 
+            ? 'Create your account' 
+            : 'Welcome back!'
+          }
+        </p>
+
+        <form onSubmit={isSignup ? handleSignup : handleLogin}>
+          <div className="form-group">
+            <label>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && <p className="error">{error}</p>}
+
+          <button type="submit" disabled={loading}>
+            {loading 
+              ? (isSignup ? 'Creating...' : 'Logging in...') 
+              : (isSignup ? 'Sign Up' : 'Login')
+            }
+          </button>
+        </form>
+
+        <p className="hint">
+          {isSignup ? (
+            <>Already have an account? <a href="/login">Login</a></>
+          ) : (
+            <>New here? <a href="/login?mode=signup">Sign Up</a></>
+          )}
+        </p>
+      </div>
     </div>
   );
 }
