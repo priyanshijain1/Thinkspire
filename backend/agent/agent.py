@@ -23,6 +23,7 @@ import datetime as dt
 from ..sessions.redis_session import load_session, save_session
 from ..database.mongodb import log_interaction
 from ..services.ai_service import generate_response as ai_generate_response
+from ..services.error_handling import handle_ai_error, validate_message, get_fallback_response, check_rate_limit
 
 
 # ============== TEACHING STRATEGIES ==============
@@ -146,10 +147,47 @@ async def main_agent(message: str, session_id: str | None = None) -> Dict[str, A
     - Progress tracking
     - Struggle detection
     - Analytics logging
+    - Error handling
+    - Rate limiting
     
     Returns:
         dict with: session_id, intent, response, learning_level, teaching_mode, strategy
     """
+    # ===== 0. VALIDATE INPUT =====
+    is_valid, error_msg = validate_message(message)
+    if not is_valid:
+        return {
+            "session_id": session_id or str(uuid.uuid4()),
+            "intent": "validation_error",
+            "response": error_msg,
+            "learning_level": 0,
+            "teaching_mode": "EXPLAINER",
+            "strategy": "Input validation",
+            "topic": "error",
+            "messages_count": 0,
+            "conversation_turns": 0,
+            "error": error_msg,
+        }
+    
+    # ===== 0b. RATE LIMITING =====
+    # Use session_id or IP as identifier
+    identifier = session_id or "anonymous"
+    is_allowed, rate_msg = check_rate_limit(identifier)
+    
+    if not is_allowed:
+        return {
+            "session_id": identifier,
+            "intent": "rate_limit",
+            "response": rate_msg,
+            "learning_level": 0,
+            "teaching_mode": "EXPLAINER",
+            "strategy": "Rate limiting",
+            "topic": "error",
+            "messages_count": 0,
+            "conversation_turns": 0,
+            "error": "rate_limit_exceeded",
+        }
+    
     # ===== 1. LOAD OR CREATE SESSION =====
     if session_id:
         sess = await load_session(session_id)
@@ -228,7 +266,9 @@ Guidelines:
             system_prompt=full_system
         )
     except Exception as e:
-        ai_response = f"I'm having trouble responding right now. Please try again. ({str(e)[:50]})"
+        # Handle AI errors gracefully with fallback
+        error_response = await handle_ai_error(e)
+        ai_response = error_response
     
     reply = ai_response
     

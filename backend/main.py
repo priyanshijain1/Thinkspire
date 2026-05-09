@@ -21,13 +21,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(chat_router)
+# Register routers with /api/v1 prefix
+app.include_router(chat_router, prefix="/api/v1", tags=["v1"])
 
 
 @app.get("/health")
 async def health_check():
-    return JSONResponse({"status": "ok"})
+    from .services.ai_service import is_configured
+    return JSONResponse({"status": "ok", "ai_configured": is_configured()})
 
 
 @app.on_event("shutdown")

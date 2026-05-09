@@ -11,7 +11,9 @@ type ChatApiResponse = {
   reply: string;
   session_id?: string;
   intent?: string;
-  hint_level?: number;
+  learning_level?: number;
+  teaching_mode?: string;
+  topic?: string;
 };
 
 export default function ChatPage() {
@@ -44,7 +46,7 @@ export default function ChatPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId }),
