@@ -35,7 +35,8 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
-      localStorage.setItem('auth_token', data.access_token);
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
       router.push('/chat');
     } catch (err) {
       setError((err as Error).message || 'Login failed');

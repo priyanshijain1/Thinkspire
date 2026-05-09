@@ -8,15 +8,6 @@ type Message = {
   text: string;
 };
 
-type ChatApiResponse = {
-  reply: string;
-  session_id?: string;
-  intent?: string;
-  learning_level?: number;
-  teaching_mode?: string;
-  topic?: string;
-};
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 export default function ChatPage() {
@@ -25,34 +16,74 @@ export default function ChatPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
+  const getToken = () => localStorage.getItem('access_token');
+  const getRefresh = () => localStorage.getItem('refresh_token');
+
+  const refreshAccessToken = async () => {
+    const refresh = getRefresh();
+    if (!refresh) return null;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh }),
+      });
+      
+      if (!res.ok) return null;
+      
+      const data = await res.json();
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      return data.access_token;
+    } catch {
+      return null;
+    }
+  };
+
+  const logout = async () => {
+    const token = getToken();
+    if (token) {
+      try {
+        await fetch(`${API_URL}/api/v1/auth/logout`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch {}
+    }
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    router.push('/login');
+  };
+
   useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token');
-    if (!storedToken) {
+    const token = getToken();
+    if (!token) {
       router.push('/login');
       return;
     }
-    setToken(storedToken);
+    if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [router]);
 
   useEffect(() => {
-    if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
-  }, [messages.length]);
-
-  useEffect(() => {
     if (messages.length === 0) {
-      const welcome: Message = { id: 'welcome', from: 'ai', text: 'Hi there! How can I help you today?' };
-      setMessages([welcome]);
+      setMessages([{ id: 'welcome', from: 'ai', text: 'Hi! Describe your problem - let\'s solve it together.' }]);
     }
   }, []);
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const text = input.trim();
-    if (!text || !token) return;
+    if (!text) return;
+
+    let token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
 
     const userMsg: Message = { id: Date.now().toString(), from: 'user', text };
     setMessages((m) => [...m, userMsg]);
@@ -70,44 +101,60 @@ export default function ChatPage() {
         body: JSON.stringify({ message: text, session_id: sessionId }),
       });
 
+      // Token expired - try refresh
       if (res.status === 401) {
-        localStorage.removeItem('auth_token');
-        router.push('/login');
+        token = await refreshAccessToken();
+        if (!token) {
+          router.push('/login');
+          return;
+        }
+        
+        const retryRes = await fetch(`${API_URL}/api/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ message: text, session_id: sessionId }),
+        });
+        
+        if (!retryRes.ok) {
+          throw new Error('Request failed');
+        }
+        
+        const data = await retryRes.json();
+        if (data.session_id) setSessionId(data.session_id);
+        const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: data.reply };
+        setMessages((m) => [...m, aiMsg]);
+        setLoading(false);
         return;
       }
 
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Server error: ${errText || res.status}`);
+        throw new Error('Request failed');
       }
 
-      const data: ChatApiResponse = await res.json();
+      const data = await res.json();
       if (data.session_id) setSessionId(data.session_id);
       const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: data.reply };
       setMessages((m) => [...m, aiMsg]);
     } catch (err) {
       const errMsg = (err as Error)?.message ?? 'Unknown error';
       setError(errMsg);
-      const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: `Error: ${errMsg}` };
-      setMessages((m) => [...m, aiMsg]);
+      setMessages((m) => [...m, { id: Date.now().toString(), from: 'ai', text: `Error: ${errMsg}` }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    router.push('/login');
-  };
-
   return (
     <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <h2>AI Chat</h2>
-        <button onClick={logout} style={{ padding: '4px 12px' }}>Logout</button>
+        <h2>Ask Think</h2>
+        <button onClick={logout} style={{ padding: '8px 16px' }}>Logout</button>
       </div>
       <div className="chat-container" style={{ height: '70vh' }}>
-        <div className="message-area" ref={scroller} aria-label="messages" role="log">
+        <div className="message-area" ref={scroller} aria-label="messages">
           {messages.map((m) => (
             <div key={m.id} className={`message ${m.from}`}>
               <div className="bubble">{m.text}</div>
@@ -115,25 +162,19 @@ export default function ChatPage() {
           ))}
           {loading && (
             <div className="message ai">
-              <div className="bubble"><span className="typing" />Typing...</div>
-            </div>
-          )}
-          {error && (
-            <div className="message ai">
-              <div className="bubble" style={{ color: '#b00020' }}>{error}</div>
+              <div className="bubble">Thinking...</div>
             </div>
           )}
         </div>
-        <form className="input-area" onSubmit={sendMessage} aria-label="chat-input">
+        <form className="input-area" onSubmit={sendMessage}>
           <input
             className="input-box"
-            placeholder="Type a message..."
+            placeholder="Describe your problem..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
-            autoComplete="off"
           />
-          <button className="send-btn" type="submit" disabled={loading || input.trim().length === 0}>
+          <button className="send-btn" type="submit" disabled={loading || !input.trim()}>
             Send
           </button>
         </form>
