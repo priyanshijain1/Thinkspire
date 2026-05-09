@@ -28,6 +28,12 @@ class User(BaseModel):
     role: str
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    role: str = "student"
+
+
 @router.on_event("startup")
 async def startup():
     await seed_users()
@@ -47,6 +53,39 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/register", response_model=User)
+async def register(req: RegisterRequest, token: str = Depends(oauth2_scheme)):
+    """Register new user (admin only or first user)."""
+    from services.auth_service import get_user_from_token
+    
+    current_user = get_user_from_token(token)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Check role - only admin can create users, or first user
+    if current_user["role"] != "admin":
+        # Check if any users exist
+        users = await get_all_users()
+        if len(users) > 0:
+            raise HTTPException(status_code=403, detail="Only admins can create users")
+    
+    # Create user
+    try:
+        from database.users import create_user as db_create_user
+        from passlib.hash import argon2
+        
+        new_user = await db_create_user(
+            req.username,
+            argon2.hash(req.password),
+            req.role
+        )
+        return {"username": new_user["username"], "role": new_user["role"]}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to create user")
 
 
 @router.get("/me", response_model=User)
