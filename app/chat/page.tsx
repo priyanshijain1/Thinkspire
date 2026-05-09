@@ -16,6 +16,9 @@ type ChatApiResponse = {
   topic?: string;
 };
 
+// API URL from environment - defaults to localhost for dev
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>('');
@@ -46,7 +49,7 @@ export default function ChatPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/chat', {
+      const res = await fetch(`${API_URL}/api/v1/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId }),
