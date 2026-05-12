@@ -3,7 +3,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from datetime import timedelta
 
 from services.auth_service import (
     authenticate_user,
@@ -11,6 +10,7 @@ from services.auth_service import (
     create_refresh_token,
     verify_token,
     invalidate_token,
+    validate_password_strength,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
@@ -23,7 +23,7 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
-    expires_in: int  # seconds
+    expires_in: int
 
 
 class User(BaseModel):
@@ -33,6 +33,11 @@ class User(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+
+
+class PasswordValidation(BaseModel):
+    valid: bool
+    message: str
 
 
 @router.post("/login", response_model=Token)
@@ -84,6 +89,11 @@ async def logout(token: str = Depends(oauth2_scheme)):
 @router.post("/signup", response_model=User)
 async def signup(req: RegisterRequest):
     """Self-signup - anyone can create an account."""
+    # Validate password strength
+    is_valid, message = validate_password_strength(req.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+    
     try:
         from database.users import create_user as db_create_user
         from passlib.hash import argon2
@@ -97,6 +107,21 @@ async def signup(req: RegisterRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Database unavailable. Try again.")
+
+
+@router.post("/validate-password")
+async def validate_password(password: str):
+    """Check password strength (for frontend meter)."""
+    from services.auth_service import get_password_strength
+    
+    is_valid, message = validate_password_strength(password)
+    strength = get_password_strength(password)
+    
+    return {
+        "valid": is_valid,
+        "message": message,
+        "strength": strength,
+    }
 
 
 @router.get("/me", response_model=User)
