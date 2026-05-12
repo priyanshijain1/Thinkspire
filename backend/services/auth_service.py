@@ -24,6 +24,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 _user_cache: dict[str, dict] = {}
+
+# In-memory fallback for blacklist (when Redis unavailable)
 _token_blacklist: set[str] = set()
 
 
@@ -84,24 +86,91 @@ def create_refresh_token(username: str) -> str:
     )
 
 
+async def _get_redis_client():
+    """Get Redis client, returns None if unavailable."""
+    try:
+        import redis.asyncio as redis
+        redis_url = os.getenv("REDIS_URL")
+        if redis_url:
+            client = redis.from_url(redis_url, decode_responses=True)
+            await client.ping()
+            return client
+    except Exception:
+        pass
+    return None
+
+
+async def invalidate_token(token: str) -> None:
+    """Add token to blacklist (logout). Uses Redis with memory fallback."""
+    redis_client = await _get_redis_client()
+    
+    if redis_client:
+        try:
+            # Calculate TTL from token expiration
+            try:
+                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+                exp = payload.get("exp")
+                if exp:
+                    now = datetime.now(timezone.utc).timestamp()
+                    ttl = max(0, int(exp - now))
+                else:
+                    ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            except JWTError:
+                ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            
+            await redis_client.setex(f"blacklist:{token}", ttl, "1")
+            await redis_client.close()
+            return
+        except Exception:
+            pass
+    
+    # Fallback to memory
+    _token_blacklist.add(token)
+
+
+def is_token_blacklisted(token: str) -> bool:
+    """Check if token is in memory blacklist."""
+    return token in _token_blacklist
+
+
 def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
-    if token in _token_blacklist:
+    """Verify token and check blacklist."""
+    # Check memory blacklist first (for fallback tokens)
+    if is_token_blacklisted(token):
         return None
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
         if payload.get("type") != token_type:
             return None
+        
+        # Check Redis blacklist for tokens not in memory
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        redis_client = loop.run_until_complete(_get_redis_client())
+        if redis_client:
+            try:
+                is_blacklisted = loop.run_until_complete(
+                    redis_client.exists(f"blacklist:{token}")
+                )
+                if is_blacklisted:
+                    return None
+            except Exception:
+                pass
+        
         return payload
     except JWTError:
         return None
 
 
-def invalidate_token(token: str) -> None:
-    _token_blacklist.add(token)
-
-
 async def authenticate_user(username: str, password: str) -> Optional[dict]:
+    """Authenticate user from MongoDB."""
     global _user_cache
     
     if username in _user_cache:

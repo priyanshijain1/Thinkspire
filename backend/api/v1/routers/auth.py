@@ -108,7 +108,7 @@ async def refresh(refresh_token: str):
 @router.post("/logout")
 async def logout(token: str = Depends(oauth2_scheme)):
     """Logout - invalidate current token."""
-    invalidate_token(token)
+    await invalidate_token(token)
     return {"message": "Logged out successfully"}
 
 
