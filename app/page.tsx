@@ -63,17 +63,17 @@ export default function LandingPage() {
           <div className="feature-card">
             <div className="feature-icon">⚡</div>
             <h3>Instant Breakthroughs</h3>
-            <p>Get sharp analysis and fresh perspectives on your toughest challenges in seconds</p>
+            <p>Stop being stuck. Get sharp, intelligent analysis and fresh perspectives on your toughest challenges in seconds, not hours</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">🧠</div>
-            <h3>Collaborative Thinking</h3>
-            <p>Work through problems with intelligent guidance tailored to your unique needs</p>
+            <h3>Intelligent Collaboration</h3>
+            <p>Work through complex problems with an AI partner that understands context, asks the right questions, and guides you toward solutions</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">🎯</div>
             <h3>Solutions That Stick</h3>
-            <p>Build real understanding and confidence through deep exploration and learning</p>
+            <p>Build lasting understanding and real confidence through deep exploration, not quick fixes. Get insights you can actually implement</p>
           </div>
         </div>
       </section>
@@ -84,25 +84,25 @@ export default function LandingPage() {
           <div className="steps">
             <div className="step">
               <div className="step-number">1</div>
-              <h4>Share Your Ideas</h4>
-              <p>Describe the problem or concept you&apos;re exploring in your own words</p>
+              <h4>Share Your Thoughts</h4>
+              <p>Describe the challenge, question, or idea you&apos;re working on. The more detail you provide, the better insights we can offer you.</p>
             </div>
             <div className="step">
               <div className="step-number">2</div>
-              <h4>Get Intelligent Guidance</h4>
-              <p>Receive thoughtful analysis, structured frameworks, and fresh perspectives instantly</p>
+              <h4>Receive Expert Analysis</h4>
+              <p>Get instant, thoughtful analysis with structured frameworks, proven methodologies, and fresh perspectives you haven&apos;t considered.</p>
             </div>
             <div className="step">
               <div className="step-number">3</div>
-              <h4>Build Deep Understanding</h4>
-              <p>Continue the conversation to explore deeper and develop lasting solutions</p>
+              <h4>Explore & Refine</h4>
+              <p>Dig deeper through natural conversation. Ask follow-up questions, explore alternatives, and develop solutions with confidence and clarity.</p>
             </div>
           </div>
         </div>
         <div className="how-it-image">
           <Image
             src="/collaboration-ui.jpg"
-            alt="Thinkspire chat interface"
+            alt="Thinkspire intelligent chat interface showing AI collaboration"
             width={550}
             height={450}
             className="how-img"
@@ -114,7 +114,7 @@ export default function LandingPage() {
         <div className="showcase-image">
           <Image
             src="/thinking-concept.jpg"
-            alt="Mind expanding with ideas"
+            alt="Mind expanding with brilliant ideas and innovation"
             width={550}
             height={400}
             className="showcase-img"
@@ -122,15 +122,16 @@ export default function LandingPage() {
         </div>
         <div className="showcase-content">
           <h2>Unlock Your Full Thinking Potential</h2>
-          <p>Thinkspire transforms how you approach complex challenges. Whether you&apos;re developing business strategy, analyzing data, conducting research, or innovating products, our AI partner helps you think deeper and solve smarter.</p>
+          <p>Thinkspire fundamentally transforms how you approach complex challenges. Whether you&apos;re architecting business strategy, uncovering hidden patterns in data, advancing research frontiers, or building the next generation of products, our intelligent AI partner empowers you to think deeper, analyze faster, and solve smarter than ever before.</p>
           <ul className="benefits-list">
-            <li>Real-time collaboration with AI insights</li>
-            <li>Structured thinking frameworks</li>
-            <li>Deep exploration across any domain</li>
-            <li>Actionable solutions you can implement</li>
+            <li>Real-time collaboration with contextual AI insights</li>
+            <li>Proven thinking frameworks and methodologies</li>
+            <li>Deep exploration across any industry or domain</li>
+            <li>Actionable, implementable solutions backed by analysis</li>
+            <li>Continuous learning through every conversation</li>
           </ul>
           <Link href="/login" className="cta-button secondary">
-            Explore Features
+            Explore All Features
           </Link>
         </div>
       </section>
@@ -141,31 +142,31 @@ export default function LandingPage() {
           <div className="use-case-card">
             <span className="use-case-icon">💼</span>
             <h4>Business Strategy</h4>
-            <p>Market analysis, competitive intelligence, and strategic planning</p>
+            <p>Navigate market complexity with intelligent analysis, competitive intelligence, and strategic decision-making support</p>
           </div>
           <div className="use-case-card">
             <span className="use-case-icon">📊</span>
             <h4>Data Science</h4>
-            <p>Complex analytics, pattern recognition, and data-driven insights</p>
+            <p>Extract meaningful patterns, uncover hidden insights, and build data-driven strategies with AI guidance</p>
           </div>
           <div className="use-case-card">
             <span className="use-case-icon">🔬</span>
             <h4>Research & Development</h4>
-            <p>Deep exploration, discovery, and innovation acceleration</p>
+            <p>Accelerate discovery, explore new frontiers, and transform research insights into breakthrough innovations</p>
           </div>
           <div className="use-case-card">
             <span className="use-case-icon">💡</span>
             <h4>Product Innovation</h4>
-            <p>Creative problem-solving and breakthrough solution design</p>
+            <p>Design solutions that matter, solve customer problems creatively, and bring breakthrough products to life</p>
           </div>
         </div>
       </section>
 
       <section className="cta-final">
         <h2>Ready to Think Bolder?</h2>
-        <p>Join thousands of professionals and innovators transforming how they solve problems</p>
+        <p>Join thousands of professionals, entrepreneurs, and innovators transforming how they approach challenges and achieve breakthrough results</p>
         <Link href="/login" className="cta-button primary-large">
-          Get Started Free
+          Start Your Free Journey
         </Link>
       </section>
 
