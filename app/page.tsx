@@ -20,6 +20,12 @@ export default function LandingPage() {
     <div className="landing">
       <nav className="navbar">
         <div className="logo">Thinkspire</div>
+        <div className="nav-menu">
+          <a href="#features" className="nav-link">Features</a>
+          <a href="#how-it-works" className="nav-link">How It Works</a>
+          <a href="#usecases" className="nav-link">Use Cases</a>
+          <a href="#contact" className="nav-link">Contact</a>
+        </div>
         <div className="nav-buttons">
           {isLoggedIn ? (
             <>
@@ -57,7 +63,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <section className="features-section">
+      <section className="features-section" id="features">
         <h2>Why Choose Thinkspire?</h2>
         <div className="features-grid">
           <div className="feature-card">
@@ -78,7 +84,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="how-it-works-section">
+      <section className="how-it-works-section" id="how-it-works">
         <div className="how-it-content">
           <h2>How Thinkspire Works</h2>
           <div className="steps">
@@ -136,7 +142,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="use-cases-section">
+      <section className="use-cases-section" id="usecases">
         <h2>Perfect For Every Field</h2>
         <div className="use-case-grid">
           <div className="use-case-card">
@@ -162,7 +168,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="cta-final">
+      <section className="cta-final" id="contact">
         <h2>Ready to Think Bolder?</h2>
         <p>Join thousands of professionals, entrepreneurs, and innovators transforming how they approach challenges and achieve breakthrough results</p>
         <Link href="/login" className="cta-button primary-large">
