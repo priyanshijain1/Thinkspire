@@ -1,7 +1,10 @@
 # Environment
 .env
 .env.local
+.env.production
 .env.*.local
+# Allow .env.example
+!.env.example
 
 # Python
 __pycache__/
