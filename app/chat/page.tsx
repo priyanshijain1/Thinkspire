@@ -82,7 +82,7 @@ export default function ChatPage() {
       setMessages([{ 
         id: 'welcome', 
         from: 'ai', 
-        text: '👋 Hi! Describe your problem - let\'s solve it together.',
+        text: 'Welcome to Thinkspire! I&apos;m here to help you explore ideas and solve problems. What would you like to think about today?',
         time: getTime()
       }]);
     }
@@ -180,10 +180,10 @@ export default function ChatPage() {
   return (
     <div className="chat-page">
       <header className="chat-header-bar">
-        <h2>Ask Think</h2>
+        <h2>Thinkspire Chat</h2>
         <div className="header-actions">
-          {sessionId && <span className="session-badge">Session active</span>}
-          <button onClick={logout} className="logout-btn">Logout</button>
+          {sessionId && <span className="session-badge">Active Session</span>}
+          <button onClick={logout} className="logout-btn">Sign Out</button>
         </div>
       </header>
 
@@ -222,7 +222,7 @@ export default function ChatPage() {
         <form className="input-area" onSubmit={sendMessage}>
           <input
             className="input-box"
-            placeholder="Describe your problem..."
+            placeholder="Share your thoughts..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}

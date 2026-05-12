@@ -18,88 +18,88 @@ export default function LandingPage() {
   return (
     <div className="landing">
       <nav className="navbar">
-        <div className="logo">Think Inspire</div>
+        <div className="logo">Thinkspire</div>
         <div className="nav-buttons">
           {isLoggedIn ? (
             <>
-              <Link href="/chat" className="btn btn-primary">Ask Think</Link>
+              <Link href="/chat" className="btn btn-primary">Start Thinking</Link>
               <button onClick={logout} className="btn btn-outline">Logout</button>
             </>
           ) : (
             <>
-              <Link href="/login" className="btn btn-outline">Login</Link>
-              <Link href="/login?mode=signup" className="btn btn-primary">Sign Up</Link>
+              <Link href="/login" className="btn btn-outline">Log In</Link>
+              <Link href="/login?mode=signup" className="btn btn-primary">Get Started</Link>
             </>
           )}
         </div>
       </nav>
 
       <main className="hero">
-        <h1>Solve Problems with AI Assistance</h1>
+        <h1>Think Deeper, Solve Smarter</h1>
         <p className="tagline">
-          Your AI-powered problem-solving partner
+          Your AI-powered thinking partner for collaborative problem-solving
         </p>
         
         <div className="features">
           <div className="feature">
-            <span className="icon">🔍</span>
-            <h3>Debug Together</h3>
-            <p>Stuck on code or errors? Get guided help instantly</p>
+            <span className="icon">✨</span>
+            <h3>Instant Insights</h3>
+            <p>Get thoughtful analysis and perspective on complex problems</p>
           </div>
           <div className="feature">
-            <span className="icon">💡</span>
-            <h3>Solve It, Not Just Copy</h3>
-            <p>Work through problems with hints, not answers</p>
+            <span className="icon">🎯</span>
+            <h3>Guided Thinking</h3>
+            <p>Work through challenges with intelligent step-by-step guidance</p>
           </div>
           <div className="feature">
-            <span className="icon">📚</span>
-            <h3>Learn by Doing</h3>
-            <p>Practice problems to master concepts</p>
+            <span className="icon">🚀</span>
+            <h3>Learn & Grow</h3>
+            <p>Develop deeper understanding through collaborative exploration</p>
           </div>
         </div>
 
         <Link href="/login" className="cta-button">
-          Start Solving
+          Begin Your Journey
         </Link>
 
         <div className="how-it-works">
           <h2>How It Works</h2>
           <ol>
-            <li><strong>Describe your problem</strong> - Paste code, error, or question</li>
-            <li><strong>Get unstuck</strong> - Receive hints or explanations</li>
-            <li><strong> Solve it yourself</strong> - Work through with AI guidance</li>
+            <li><strong>Share your thoughts</strong> - Describe the problem or idea you&apos;re exploring</li>
+            <li><strong>Receive guidance</strong> - Get intelligent insights and structured thinking</li>
+            <li><strong>Explore deeper</strong> - Continue the conversation to build understanding</li>
           </ol>
         </div>
 
         <div className="use-cases">
-          <h2>What Can You Solve?</h2>
+          <h2>What Can You Explore?</h2>
           <div className="use-case-grid">
             <div className="use-case">
-              <span className="icon">🐛</span>
-              <h4>Bug Debugging</h4>
-              <p>Fix broken code</p>
+              <span className="icon">💼</span>
+              <h4>Business Strategy</h4>
+              <p>Strategic planning</p>
             </div>
             <div className="use-case">
-              <span className="icon">📝</span>
-              <h4>Code Reviews</h4>
-              <p>Improve your code</p>
+              <span className="icon">📊</span>
+              <h4>Data Analysis</h4>
+              <p>Insights & trends</p>
             </div>
             <div className="use-case">
-              <span className="icon">🤔</span>
-              <h4>Concept Help</h4>
-              <p>Understand anything</p>
+              <span className="icon">🔬</span>
+              <h4>Research</h4>
+              <p>Deep exploration</p>
             </div>
             <div className="use-case">
-              <span className="icon">💻</span>
-              <h4>Write Code</h4>
-              <p>Get started</p>
+              <span className="icon">💡</span>
+              <h4>Innovation</h4>
+              <p>Creative solutions</p>
             </div>
           </div>
         </div>
       </main>
 
       <footer className="footer">
-        <p>© 2026 Think Inspire. Solve Harder.</p>
+        <p>© 2026 Thinkspire. Think Deeper.</p>
       </footer>
     </div>
   );
