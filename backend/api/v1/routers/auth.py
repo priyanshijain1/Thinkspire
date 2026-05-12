@@ -1,6 +1,6 @@
-"""Authentication router."""
+"""Authentication router with rate limiting."""
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
@@ -13,6 +13,7 @@ from services.auth_service import (
     validate_password_strength,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
+from services.rate_limiter import auth_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -40,13 +41,38 @@ class PasswordValidation(BaseModel):
     message: str
 
 
+def get_client_ip(request: Request) -> str:
+    """Get client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), request: Request = None):
     """Login - returns short-lived access + long-lived refresh token."""
+    identifier = get_client_ip(request) if request else "unknown"
+    
+    # Check rate limit
+    is_allowed, message, retry_after = await auth_rate_limiter.is_allowed(identifier)
+    if not is_allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=message,
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     user = await authenticate_user(form_data.username, form_data.password)
     
     if not user:
+        # Record failure for lockout
+        await auth_rate_limiter.record_failure(identifier)
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Reset rate limit on successful login
+    await auth_rate_limiter.reset(identifier)
     
     access_token = create_access_token(user["username"])
     refresh_token = create_refresh_token(user["username"])
@@ -87,13 +113,24 @@ async def logout(token: str = Depends(oauth2_scheme)):
 
 
 @router.post("/signup", response_model=User)
-async def signup(req: RegisterRequest):
+async def signup(req: RegisterRequest, request: Request = None):
     """Self-signup - anyone can create an account."""
+    identifier = get_client_ip(request) if request else "unknown"
+    
+    # Check rate limit
+    is_allowed, message, retry_after = await auth_rate_limiter.is_allowed(identifier)
+    if not is_allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=message,
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     # Validate password strength
     is_valid, message = validate_password_strength(req.password)
     if not is_valid:
         raise HTTPException(status_code=400, detail=message)
-    
+
     try:
         from database.users import create_user as db_create_user
         from passlib.hash import argon2
