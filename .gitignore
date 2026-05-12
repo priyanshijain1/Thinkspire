@@ -1,41 +1,41 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-
-# Next.js build outputs
-.next/
-out/
-
-# Production/build artifacts
-build/
-dist/
-
-# Logs
-*.log
-
-# Environment files
+# Environment
 .env
 .env.local
-!.env.example
+.env.*.local
 
-# Python artifacts
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+dist/
 *.egg-info/
-venv/
-.venv/
-think-inspire/venv/
-dump.rdb
+.eggs/
 
-# IDEs and editors
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Virtual env
+venv/
+ENV/
+env/
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 
-# Coverage and test results
-coverage/
-test-results/
+# Next.js (frontend only, in root)
+.next/
+out/
+node_modules/
