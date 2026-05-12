@@ -6,6 +6,7 @@ type Message = {
   id: string;
   from: 'user' | 'ai';
   text: string;
+  time?: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
@@ -15,12 +16,16 @@ export default function ChatPage() {
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
   const getToken = () => localStorage.getItem('access_token');
   const getRefresh = () => localStorage.getItem('refresh_token');
+
+  const getTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   const refreshAccessToken = async () => {
     const refresh = getRefresh();
@@ -63,16 +68,29 @@ export default function ChatPage() {
     const token = getToken();
     if (!token) {
       router.push('/login');
-      return;
     }
-    if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [router]);
 
   useEffect(() => {
+    if (scroller.current) {
+      scroller.current.scrollTop = scroller.current.scrollHeight;
+    }
+  }, [messages]);
+
+  useEffect(() => {
     if (messages.length === 0) {
-      setMessages([{ id: 'welcome', from: 'ai', text: 'Hi! Describe your problem - let\'s solve it together.' }]);
+      setMessages([{ 
+        id: 'welcome', 
+        from: 'ai', 
+        text: '👋 Hi! Describe your problem - let\'s solve it together.',
+        time: getTime()
+      }]);
     }
   }, []);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
 
   const sendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -85,10 +103,14 @@ export default function ChatPage() {
       return;
     }
 
-    const userMsg: Message = { id: Date.now().toString(), from: 'user', text };
+    const userMsg: Message = { 
+      id: Date.now().toString(), 
+      from: 'user', 
+      text,
+      time: getTime()
+    };
     setMessages((m) => [...m, userMsg]);
     setInput('');
-    setError(null);
     setLoading(true);
 
     try {
@@ -101,7 +123,6 @@ export default function ChatPage() {
         body: JSON.stringify({ message: text, session_id: sessionId }),
       });
 
-      // Token expired - try refresh
       if (res.status === 401) {
         token = await refreshAccessToken();
         if (!token) {
@@ -118,54 +139,86 @@ export default function ChatPage() {
           body: JSON.stringify({ message: text, session_id: sessionId }),
         });
         
-        if (!retryRes.ok) {
-          throw new Error('Request failed');
-        }
+        if (!retryRes.ok) throw new Error('Request failed');
         
         const data = await retryRes.json();
         if (data.session_id) setSessionId(data.session_id);
-        const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: data.reply };
+        const aiMsg: Message = { 
+          id: Date.now().toString(), 
+          from: 'ai', 
+          text: data.reply,
+          time: getTime()
+        };
         setMessages((m) => [...m, aiMsg]);
         setLoading(false);
         return;
       }
 
-      if (!res.ok) {
-        throw new Error('Request failed');
-      }
+      if (!res.ok) throw new Error('Request failed');
 
       const data = await res.json();
       if (data.session_id) setSessionId(data.session_id);
-      const aiMsg: Message = { id: Date.now().toString(), from: 'ai', text: data.reply };
+      const aiMsg: Message = { 
+        id: Date.now().toString(), 
+        from: 'ai', 
+        text: data.reply,
+        time: getTime()
+      };
       setMessages((m) => [...m, aiMsg]);
-    } catch (err) {
-      const errMsg = (err as Error)?.message ?? 'Unknown error';
-      setError(errMsg);
-      setMessages((m) => [...m, { id: Date.now().toString(), from: 'ai', text: `Error: ${errMsg}` }]);
+    } catch {
+      setMessages((m) => [...m, { 
+        id: Date.now().toString(), 
+        from: 'ai', 
+        text: '❌ Something went wrong. Please try again.',
+        time: getTime()
+      }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container" style={{ paddingTop: 20, paddingBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+    <div className="chat-page">
+      <header className="chat-header-bar">
         <h2>Ask Think</h2>
-        <button onClick={logout} style={{ padding: '8px 16px' }}>Logout</button>
-      </div>
-      <div className="chat-container" style={{ height: '70vh' }}>
-        <div className="message-area" ref={scroller} aria-label="messages">
-          {messages.map((m) => (
-            <div key={m.id} className={`message ${m.from}`}>
-              <div className="bubble">{m.text}</div>
-            </div>
-          ))}
-          {loading && (
-            <div className="message ai">
-              <div className="bubble">Thinking...</div>
-            </div>
-          )}
+        <div className="header-actions">
+          {sessionId && <span className="session-badge">Session active</span>}
+          <button onClick={logout} className="logout-btn">Logout</button>
         </div>
+      </header>
+
+      <div className="chat-wrapper">
+        <div className="chat-container">
+          <div className="message-area" ref={scroller}>
+            {messages.map((m) => (
+              <div key={m.id} className={`message ${m.from}`}>
+                <div className="message-content">
+                  <div className="bubble">{m.text}</div>
+                  {m.time && <span className="timestamp">{m.time}</span>}
+                </div>
+                <button 
+                  className="copy-btn" 
+                  onClick={() => copyToClipboard(m.text)}
+                  title="Copy"
+                >
+                  📋
+                </button>
+              </div>
+            ))}
+            {loading && (
+              <div className="message ai">
+                <div className="message-content">
+                  <div className="bubble typing">
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <form className="input-area" onSubmit={sendMessage}>
           <input
             className="input-box"
@@ -174,8 +227,12 @@ export default function ChatPage() {
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
           />
-          <button className="send-btn" type="submit" disabled={loading || !input.trim()}>
-            Send
+          <button 
+            className="send-btn" 
+            type="submit" 
+            disabled={loading || !input.trim()}
+          >
+            ➤
           </button>
         </form>
       </div>
