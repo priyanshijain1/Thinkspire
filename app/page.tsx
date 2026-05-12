@@ -35,31 +35,31 @@ export default function LandingPage() {
       </nav>
 
       <main className="hero">
-        <h1>Think Deeper, Solve Smarter</h1>
+        <h1>Think <span>Bolder</span>,<br />Solve <span>Faster</span></h1>
         <p className="tagline">
-          Your AI-powered thinking partner for collaborative problem-solving
+          Your AI-powered thinking partner for breakthrough ideas. Explore complex problems with intelligent guidance and unlock solutions you never thought possible.
         </p>
         
         <div className="features">
           <div className="feature">
-            <span className="icon">✨</span>
-            <h3>Instant Insights</h3>
-            <p>Get thoughtful analysis and perspective on complex problems</p>
+            <span className="icon">⚡</span>
+            <h3>Instant Breakthroughs</h3>
+            <p>Get sharp analysis and fresh perspectives on your toughest challenges</p>
+          </div>
+          <div className="feature">
+            <span className="icon">🧠</span>
+            <h3>Collaborative Thinking</h3>
+            <p>Work through problems with intelligent guidance every step of the way</p>
           </div>
           <div className="feature">
             <span className="icon">🎯</span>
-            <h3>Guided Thinking</h3>
-            <p>Work through challenges with intelligent step-by-step guidance</p>
-          </div>
-          <div className="feature">
-            <span className="icon">🚀</span>
-            <h3>Learn & Grow</h3>
-            <p>Develop deeper understanding through collaborative exploration</p>
+            <h3>Solutions That Stick</h3>
+            <p>Build real understanding and confidence through deep exploration</p>
           </div>
         </div>
 
         <Link href="/login" className="cta-button">
-          Begin Your Journey
+          Start Exploring
         </Link>
 
         <div className="how-it-works">
@@ -72,27 +72,27 @@ export default function LandingPage() {
         </div>
 
         <div className="use-cases">
-          <h2>What Can You Explore?</h2>
+          <h2>Solve Across Any Domain</h2>
           <div className="use-case-grid">
             <div className="use-case">
               <span className="icon">💼</span>
               <h4>Business Strategy</h4>
-              <p>Strategic planning</p>
+              <p>Market analysis & planning</p>
             </div>
             <div className="use-case">
               <span className="icon">📊</span>
-              <h4>Data Analysis</h4>
-              <p>Insights & trends</p>
+              <h4>Data Science</h4>
+              <p>Complex analytics & insights</p>
             </div>
             <div className="use-case">
               <span className="icon">🔬</span>
-              <h4>Research</h4>
-              <p>Deep exploration</p>
+              <h4>Research & Development</h4>
+              <p>Deep exploration & discovery</p>
             </div>
             <div className="use-case">
               <span className="icon">💡</span>
-              <h4>Innovation</h4>
-              <p>Creative solutions</p>
+              <h4>Product Innovation</h4>
+              <p>Creative problem-solving</p>
             </div>
           </div>
         </div>
