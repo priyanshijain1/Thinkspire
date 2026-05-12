@@ -1,6 +1,7 @@
 """JWT Authentication service."""
 
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -19,15 +20,10 @@ if not _jwt_secret:
 SECRET_KEY = _jwt_secret
 ALGORITHM = "HS256"
 
-# Short-lived access token: 15 minutes
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
-# Refresh token: 7 days
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
-# User cache
 _user_cache: dict[str, dict] = {}
-
-# Token blacklist for logout
 _token_blacklist: set[str] = set()
 
 
@@ -35,8 +31,38 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return argon2.verify(plain_password, hashed_password)
 
 
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """Validate password meets security requirements."""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters"
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain an uppercase letter"
+    if not re.search(r"[0-9]", password):
+        return False, "Password must contain a number"
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "Password must contain a special character (!@#$%^&*...)"
+    return True, "Password is strong"
+
+
+def get_password_strength(password: str) -> str:
+    """Return password strength level."""
+    if len(password) < 4:
+        return "weak"
+    score = 0
+    if len(password) >= 8: score += 1
+    if re.search(r"[A-Z]", password): score += 1
+    if re.search(r"[a-z]", password): score += 1
+    if re.search(r"[0-9]", password): score += 1
+    if re.search(r"[!@#$%^&*(),.?\":{}|<>]", password): score += 1
+    
+    if score <= 2:
+        return "weak"
+    elif score <= 3:
+        return "medium"
+    return "strong"
+
+
 def create_access_token(username: str) -> str:
-    """Create short-lived access token (15 min)."""
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
@@ -48,7 +74,6 @@ def create_access_token(username: str) -> str:
 
 
 def create_refresh_token(username: str) -> str:
-    """Create long-lived refresh token (7 days)."""
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     
@@ -60,37 +85,25 @@ def create_refresh_token(username: str) -> str:
 
 
 def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
-    """Verify token and check blacklist."""
-    # Check blacklist
     if token in _token_blacklist:
         return None
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        
-        # Verify token type
         if payload.get("type") != token_type:
             return None
-        
         return payload
     except JWTError:
         return None
 
 
 def invalidate_token(token: str) -> None:
-    """Add token to blacklist (logout)."""
     _token_blacklist.add(token)
 
 
-def is_token_invalidated(token: str) -> bool:
-    return token in _token_blacklist
-
-
 async def authenticate_user(username: str, password: str) -> Optional[dict]:
-    """Authenticate user from MongoDB."""
     global _user_cache
     
-    # Check cache first
     if username in _user_cache:
         user_doc = _user_cache[username]
     else:
