@@ -36,7 +36,10 @@ class RegisterRequest(BaseModel):
     password: str
 
 
- 
+class PasswordValidationRequest(BaseModel):
+    password: str
+
+
 class PasswordValidation(BaseModel):
     valid: bool
     message: str
@@ -149,12 +152,12 @@ async def signup(req: RegisterRequest, request: Request = None):
 
 
 @router.post("/validate-password")
-async def validate_password(password: str):
+async def validate_password(payload: PasswordValidationRequest):
     """Check password strength (for frontend meter)."""
     from services.auth_service import get_password_strength
-    
-    is_valid, message = validate_password_strength(password)
-    strength = get_password_strength(password)
+
+    is_valid, message = validate_password_strength(payload.password)
+    strength = get_password_strength(payload.password)
     
     return {
         "valid": is_valid,

@@ -14,17 +14,12 @@ load_dotenv(backend_dir / ".env")
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
-# Allow multiple origins for development and production
 origins = [
     FRONTEND_URL,
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://thinkspire.vercel.app",  # Vercel frontend
+    "https://thinkspire.vercel.app",
 ]
-
-# If FRONTEND_URL is set, add it as well
-if FRONTEND_URL not in origins:
-    origins.append(FRONTEND_URL)
 
 app = FastAPI(title="Think-Inspire Backend")
 
@@ -49,8 +44,7 @@ async def health_check():
     return JSONResponse({
         "status": "ok", 
         "ai_configured": is_configured(),
-        "frontend_url": FRONTEND_URL,
-        "cors_origins": origins,
+        "cors": origins,
     })
 
 
