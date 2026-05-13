@@ -1,5 +1,7 @@
 """Authentication router with rate limiting."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -16,6 +18,7 @@ from services.auth_service import (
 from services.rate_limiter import auth_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -38,6 +41,10 @@ class RegisterRequest(BaseModel):
 
 class PasswordValidationRequest(BaseModel):
     password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class PasswordValidation(BaseModel):
@@ -90,14 +97,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), request: Reque
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh(refresh_token: str):
+async def refresh(payload: RefreshRequest):
     """Refresh - exchange refresh token for new access token."""
-    payload = verify_token(refresh_token, "refresh")
-    
-    if not payload:
+    token_payload = verify_token(payload.refresh_token, "refresh")
+
+    if not token_payload:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-    
-    username = payload.get("username")
+
+    username = token_payload.get("username")
     new_access = create_access_token(username)
     new_refresh = create_refresh_token(username)
     
@@ -148,6 +155,7 @@ async def signup(req: RegisterRequest, request: Request = None):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.exception("Signup failed for username '%s'", req.username)
         raise HTTPException(status_code=500, detail="Database unavailable. Try again.")
 
 

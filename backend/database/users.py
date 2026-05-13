@@ -1,5 +1,6 @@
 """MongoDB User database service."""
 
+import logging
 import os
 from typing import Optional
 from pathlib import Path
@@ -16,6 +17,7 @@ DB_NAME = os.getenv("MONGO_DB", "thinkinspire")
 _client: AsyncIOMotorClient | None = None
 _db = None
 _users_collection = None
+logger = logging.getLogger(__name__)
 
 
 async def _connect():
@@ -25,10 +27,14 @@ async def _connect():
             _client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=2000)
             _db = _client[DB_NAME]
             _users_collection = _db["users"]
+            await _client.admin.command("ping")
             # Create index for username (fast lookups)
             await _users_collection.create_index("username", unique=True)
         except Exception:
+            logger.exception("MongoDB connection failed")
             _client = None
+            _db = None
+            _users_collection = None
 
 
 async def get_users_collection():
@@ -54,6 +60,7 @@ async def create_user(username: str, password_hash: str) -> dict:
     except Exception as e:
         if "duplicate" in str(e).lower():
             raise ValueError(f"User '{username}' already exists")
+        logger.exception("User creation failed for username '%s'", username)
         raise
 
 

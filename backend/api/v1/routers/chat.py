@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Request, Response, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from typing import Optional
@@ -17,7 +16,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     """Verify JWT token."""
     user = get_user_from_token(token)
     if not user:
-        raise JSONResponse(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user
 
 
