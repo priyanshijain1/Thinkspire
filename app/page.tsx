@@ -45,8 +45,7 @@ export default function LandingPage() {
         <div className="hero-content">
           <h1>Think <span>Bolder</span>,<br />Solve <span>Faster</span></h1>
           <p className="tagline">
-            Your AI-powered thinking partner for breakthrough ideas. Explore complex problems with intelligent guidance and unlock solutions you never thought possible.
-          </p>
+          Your AI-powered problem-solving partner that helps you think through challenges instead of simply giving answers.          </p>
           <Link href="/login" className="cta-button">
             Start Exploring
           </Link>
@@ -130,10 +129,10 @@ export default function LandingPage() {
           <h2>Unlock Your Full Thinking Potential</h2>
           <p>Thinkspire fundamentally transforms how you approach complex challenges. Whether you&apos;re architecting business strategy, uncovering hidden patterns in data, advancing research frontiers, or building the next generation of products, our intelligent AI partner empowers you to think deeper, analyze faster, and solve smarter than ever before.</p>
           <ul className="benefits-list">
-            <li>Real-time collaboration with contextual AI insights</li>
+            <li>Every interaction adapts to your current level and progress.</li>
             <li>Proven thinking frameworks and methodologies</li>
-            <li>Deep exploration across any industry or domain</li>
-            <li>Actionable, implementable solutions backed by analysis</li>
+            <li>Prevents overdependence by controlling how much information is revealed at each step.</li>
+            <li>Designed to help users become stronger thinkers over time, not just faster answer finders.</li>
             <li>Continuous learning through every conversation</li>
           </ul>
           <Link href="/login" className="cta-button secondary">
@@ -143,41 +142,58 @@ export default function LandingPage() {
       </section>
 
       <section className="use-cases-section" id="usecases">
-        <h2>Perfect For Every Field</h2>
+        <h2>Built For Problem Solvers</h2>
         <div className="use-case-grid">
+          
           <div className="use-case-card">
-            <span className="use-case-icon">💼</span>
-            <h4>Business Strategy</h4>
-            <p>Navigate market complexity with intelligent analysis, competitive intelligence, and strategic decision-making support</p>
+            <span className="use-case-icon">💻</span>
+            <h4>Coding Interview Prep</h4>
+            <p>
+              Practice DSA, algorithms, and coding interview questions with adaptive AI guidance that helps you think through solutions step-by-step.
+            </p>
           </div>
+
           <div className="use-case-card">
-            <span className="use-case-icon">📊</span>
-            <h4>Data Science</h4>
-            <p>Extract meaningful patterns, uncover hidden insights, and build data-driven strategies with AI guidance</p>
+            <span className="use-case-icon">🧠</span>
+            <h4>Concept Learning</h4>
+            <p>
+              Understand difficult programming and technical concepts through personalized explanations, hints, and guided reasoning.
+            </p>
           </div>
+
           <div className="use-case-card">
-            <span className="use-case-icon">🔬</span>
-            <h4>Research & Development</h4>
-            <p>Accelerate discovery, explore new frontiers, and transform research insights into breakthrough innovations</p>
+            <span className="use-case-icon">🛠</span>
+            <h4>Debugging Assistance</h4>
+            <p>
+              Break down bugs and implementation issues with structured problem-solving support instead of instant fixes.
+            </p>
           </div>
+
           <div className="use-case-card">
-            <span className="use-case-icon">💡</span>
-            <h4>Product Innovation</h4>
-            <p>Design solutions that matter, solve customer problems creatively, and bring breakthrough products to life</p>
+            <span className="use-case-icon">🚀</span>
+            <h4>Skill Development</h4>
+            <p>
+              Build analytical thinking, confidence, and independent problem-solving skills through continuous AI-assisted learning.
+            </p>
           </div>
+
         </div>
       </section>
 
       <section className="cta-final" id="contact">
-        <h2>Ready to Think Bolder?</h2>
-        <p>Join thousands of professionals, entrepreneurs, and innovators transforming how they approach challenges and achieve breakthrough results</p>
+        <h2>Ready to Become a Better Problem Solver?</h2>
+        <p>
+          Strengthen your thinking process, solve challenges with confidence, 
+          and learn through AI-guided reasoning designed to help you grow — not just give answers.
+        </p>
+
         <Link href="/login" className="cta-button primary-large">
-          Start Your Free Journey
+          Start Solving Smarter
         </Link>
       </section>
 
       <footer className="footer">
-        <p>© 2026 Thinkspire. Think Deeper. Solve Faster.</p>
+        <p>© 2026 Thinkspire. Learn the Process. Not Just the Answer.</p>
       </footer>
     </div>
   );
