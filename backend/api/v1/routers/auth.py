@@ -36,6 +36,7 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+ 
 class PasswordValidation(BaseModel):
     valid: bool
     message: str
@@ -130,6 +131,7 @@ async def signup(req: RegisterRequest, request: Request = None):
     is_valid, message = validate_password_strength(req.password)
     if not is_valid:
         raise HTTPException(status_code=400, detail=message)
+    
 
     try:
         from database.users import create_user as db_create_user

@@ -132,8 +132,8 @@ export default function LoginPage() {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1>{isSignup ? 'Sign Up' : 'Login'}</h1>
-        <p className="subtitle">{isSignup ? 'Create your account' : 'Welcome back!'}</p>
+        <h1>{isSignup ? 'Create Account' : 'Welcome Back'}</h1>
+        <p className="subtitle">{isSignup ? 'Join Thinkspire and start exploring' : 'Sign in to continue thinking'}</p>
 
         {rateLimitError && (
           <div className="rate-limit-error">
@@ -198,57 +198,46 @@ export default function LoginPage() {
             {loading ? (
               <span className="spinner"></span>
             ) : (
-              isSignup ? 'Sign Up' : 'Login'
+              isSignup ? 'Create Account' : 'Sign In'
             )}
           </button>
         </form>
 
         <p className="hint">
           {isSignup ? (
-            <>Already have an account? <a href="/login">Login</a></>
+            <>Already have an account? <a href="/login">Sign In</a></>
           ) : (
-            <>New here? <a href="/login?mode=signup">Sign Up</a></>
+            <>Don&apos;t have an account? <a href="/login?mode=signup">Create One</a></>
           )}
         </p>
       </div>
 
       <style jsx>{`
-        .rate-limit-error {
-          background: #fef3c7;
-          color: #92400e;
-          padding: 12px 16px;
-          border-radius: 8px;
-          margin-bottom: 16px;
-          font-size: 14px;
-          border: 1px solid #f59e0b;
-        }
         .password-strength {
-          margin-top: 8px;
+          margin-top: 12px;
         }
         .strength-bar {
-          height: 4px;
-          background: #e5e7eb;
+          height: 3px;
+          background: #e8e8e8;
           border-radius: 2px;
           overflow: hidden;
+          margin-bottom: 6px;
         }
         .strength-fill {
           height: 100%;
-          transition: width 0.3s, background-color 0.3s;
+          transition: width 0.3s ease, background-color 0.3s ease;
         }
         .strength-label {
           font-size: 12px;
           display: block;
-          margin-top: 4px;
+          margin-bottom: 3px;
+          font-weight: 500;
         }
         .strength-hint {
           font-size: 11px;
           color: #ef4444;
           display: block;
-          margin-top: 2px;
-        }
-        .submit-btn:disabled {
-          background: #9ca3af;
-          cursor: not-allowed;
+          margin-top: 3px;
         }
       `}</style>
     </div>
