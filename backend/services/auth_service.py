@@ -144,26 +144,7 @@ def verify_token(token: str, token_type: str = "access") -> Optional[dict]:
         
         if payload.get("type") != token_type:
             return None
-        
-        # Check Redis blacklist for tokens not in memory
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        redis_client = loop.run_until_complete(_get_redis_client())
-        if redis_client:
-            try:
-                is_blacklisted = loop.run_until_complete(
-                    redis_client.exists(f"blacklist:{token}")
-                )
-                if is_blacklisted:
-                    return None
-            except Exception:
-                pass
-        
+
         return payload
     except JWTError:
         return None
