@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Think Inspire</h1>
+  <h1>ThinkSpire</h1>
   <p><strong>AI-Powered Problem Solving Assistant</strong></p>
   <p>An intelligent learning platform that adapts to your skill level, helps debug code, and guides you through problem-solving using interactive AI conversations.</p>
   <br>
