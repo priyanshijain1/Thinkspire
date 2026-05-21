@@ -157,14 +157,25 @@ export default function LoginPage() {
             <label>Password</label>
             <div className="password-input">
               <input
-                type={showPassword ? 'text' : 'password'}
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
                 required
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                className={showPassword ? "password-hidden" : ""}
               />
+              {showPassword && (
+                <input
+                  type="text"
+                  value={password}
+                  readOnly
+                  className="password-visual"
+                  aria-hidden="true"
+                />
+              )}
               <button type="button" className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? '' : '👁️'}
               </button>
             </div>
 
@@ -213,6 +224,43 @@ export default function LoginPage() {
       </div>
 
       <style jsx>{`
+        .password-input {
+          position: relative;
+        }
+        .password-hidden {
+          opacity: 0;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 1;
+        }
+        .password-visual {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 2;
+          pointer-events: none;
+          background: transparent;
+          border: none;
+          padding: inherit;
+          font: inherit;
+          color: inherit;
+        }
+        .toggle-password {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 3;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+        }
         .password-strength {
           margin-top: 12px;
         }
