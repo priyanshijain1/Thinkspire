@@ -7,12 +7,13 @@ export default function LandingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('access_token');
     setIsLoggedIn(!!token);
   }, []);
 
   const logout = () => {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     setIsLoggedIn(false);
   };
 
@@ -117,13 +118,13 @@ export default function LandingPage() {
       </section>
 
       <section className="showcase-section">
-        <div className="showcase-image">
+        <div className="how-it-image">
           <Image
             src="/thinking-concept.jpg"
             alt="Mind expanding with brilliant ideas and innovation"
             width={550}
             height={400}
-            className="showcase-img"
+            className="how-img"
           />
         </div>
         <div className="showcase-content">
@@ -171,7 +172,7 @@ export default function LandingPage() {
       <section className="cta-final" id="contact">
         <h2>Ready to Think Bolder?</h2>
         <p>Join thousands of professionals, entrepreneurs, and innovators transforming how they approach challenges and achieve breakthrough results</p>
-        <Link href="/login" className="cta-button primary-large">
+        <Link href="/login" className="cta-button">
           Start Your Free Journey
         </Link>
       </section>

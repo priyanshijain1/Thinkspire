@@ -58,7 +58,7 @@ async def create_user(username: str, password_hash: str) -> dict:
         await coll.insert_one(doc)
         return {"username": username}
     except Exception as e:
-        if "duplicate" in str(e).lower():
+        if "duplicate" in str(e).lower() or "E11000" in str(e):
             raise ValueError(f"User '{username}' already exists")
         logger.exception("User creation failed for username '%s'", username)
         raise
@@ -75,5 +75,6 @@ async def get_user(username: str) -> Optional[dict]:
         if user:
             user["_id"] = str(user["_id"])
         return user
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to fetch user '%s': %s", username, e)
         return None

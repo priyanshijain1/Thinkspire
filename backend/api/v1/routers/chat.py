@@ -1,11 +1,16 @@
+import json
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
-from agent.agent import main_agent
-from services.error_handling import check_rate_limit
-from services.auth_service import get_user_from_token
+from backend.agent.agent import main_agent
+from backend.services.error_handling import check_rate_limit
+from backend.services.auth_service import get_user_from_token
+from backend.services.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -99,10 +104,84 @@ async def chat(req: ChatRequest, request: Request, user: dict = Depends(get_curr
     )
 
 
-@router.get("/modes")
+@router.post("/chat/stream")
+async def chat_stream(req: ChatRequest, request: Request, user: dict = Depends(get_current_user)):
+    """Stream AI response token-by-token via Server-Sent Events."""
+    from backend.agent.agent import (
+        determine_learning_level,
+        get_teaching_strategy,
+        analyze_struggle,
+        _create_new_session,
+        _extract_topic,
+    )
+    from backend.sessions.redis_session import load_session, save_session
+    from backend.services.ai_service import generate_response_stream
+    import uuid
+    import datetime as dt
+
+    session_id = req.session_id or str(uuid.uuid4())
+    sess = await load_session(session_id)
+    if not sess:
+        sess = _create_new_session()
+
+    struggle_data = analyze_struggle(sess, req.message)
+    if struggle_data["is_struggling"]:
+        sess["struggle_count"] = sess.get("struggle_count", 0) + 1
+    else:
+        sess["struggle_count"] = 0
+
+    learning_level = determine_learning_level(sess)
+    teaching_mode, system_prompt = get_teaching_strategy(learning_level, req.message)
+
+    history = []
+    if sess.get("message_history"):
+        history = sess["message_history"][-15:]
+
+    formatted_history = [
+        {"role": "user" if m.get("role") == "user" else "assistant", "content": m.get("content", "")}
+        for m in history
+    ]
+
+    async def event_stream():
+        full_response = []
+        try:
+            yield f"data: {json.dumps({'type': 'meta', 'session_id': session_id, 'teaching_mode': teaching_mode, 'learning_level': learning_level})}\n\n"
+
+            async for chunk in generate_response_stream(
+                user_message=req.message,
+                conversation_history=formatted_history,
+                system_prompt=system_prompt,
+            ):
+                full_response.append(chunk)
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+
+            reply = "".join(full_response)
+
+            sess["message_history"] = (sess.get("message_history", []) + [
+                {"role": "user", "content": req.message},
+                {"role": "assistant", "content": reply},
+            ])[-10:]
+            sess["messages_count"] = sess.get("messages_count", 0) + 1
+            sess["last_user_message"] = req.message
+            sess["current_topic"] = _extract_topic(req.message)
+            sess["learning_level"] = learning_level
+            sess["teaching_mode"] = teaching_mode
+
+            await save_session(session_id, sess, ttl_days=7)
+
+            yield f"data: {json.dumps({'type': 'done', 'messages_count': sess['messages_count']})}\n\n"
+        except Exception as e:
+            logger.error("Streaming error for session %s: %s", session_id, e)
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 async def get_teaching_modes(user: dict = Depends(get_current_user)):
     """Get available teaching modes."""
-    from agent.agent import TEACHING_MODES
+    from backend.agent.agent import TEACHING_MODES
     return {
         "modes": [
             {
@@ -117,13 +196,13 @@ async def get_teaching_modes(user: dict = Depends(get_current_user)):
 @router.get("/progress/{session_id}")
 async def get_session_progress(session_id: str, user: dict = Depends(get_current_user)):
     """Get progress for a specific session."""
-    from sessions.redis_session import load_session
-    
+    from backend.sessions.redis_session import load_session
+
     session = await load_session(session_id)
-    
+
     if not session:
         return {"error": "Session not found"}
-    
+
     return {
         "session_id": session_id,
         "learning_level": session.get("learning_level", 0),
@@ -134,10 +213,52 @@ async def get_session_progress(session_id: str, user: dict = Depends(get_current
     }
 
 
+@router.get("/history/{session_id}")
+async def get_chat_history(
+    session_id: str,
+    skip: int = 0,
+    limit: int = 20,
+    user: dict = Depends(get_current_user),
+):
+    """Get paginated chat history for a session from MongoDB interaction logs."""
+    from backend.database.mongodb import get_collection
+
+    limit = min(limit, 100)
+
+    coll = await get_collection()
+    if coll is None:
+        return {"messages": [], "total": 0, "error": "Database unavailable"}
+
+    cursor = coll.find({"session_id": session_id}).sort("timestamp", 1).skip(skip).limit(limit)
+    docs = await cursor.to_list(length=limit)
+
+    total = await coll.count_documents({"session_id": session_id})
+
+    messages = [
+        {
+            "user_message": doc.get("user_message", ""),
+            "ai_response": doc.get("ai_response", ""),
+            "timestamp": doc.get("timestamp").isoformat() if doc.get("timestamp") else None,
+            "teaching_mode": doc.get("intent"),
+            "learning_level": doc.get("hint_level"),
+        }
+        for doc in docs
+    ]
+
+    return {
+        "session_id": session_id,
+        "messages": messages,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total,
+    }
+
+
 @router.get("/health")
 async def health_check():
     """Health check endpoint."""
-    from services.ai_service import is_configured
+    from backend.services.ai_service import is_configured
     
     return {
         "status": "ok",

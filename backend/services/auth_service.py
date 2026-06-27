@@ -10,6 +10,10 @@ from passlib.hash import argon2
 from dotenv import load_dotenv
 from pathlib import Path
 
+from backend.services.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
@@ -95,8 +99,8 @@ async def _get_redis_client():
             client = redis.from_url(redis_url, decode_responses=True)
             await client.ping()
             return client
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Redis not available for auth: %s", e)
     return None
 
 
@@ -121,8 +125,8 @@ async def invalidate_token(token: str) -> None:
             await redis_client.setex(f"blacklist:{token}", ttl, "1")
             await redis_client.close()
             return
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to blacklist token in Redis: %s", e)
     
     # Fallback to memory
     _token_blacklist.add(token)
@@ -159,12 +163,12 @@ async def authenticate_user(username: str, password: str) -> Optional[dict]:
     else:
         user_doc = None
         try:
-            from database.users import get_user as db_get_user
+            from backend.database.users import get_user as db_get_user
             user_doc = await db_get_user(username)
             if user_doc:
                 _user_cache[username] = user_doc
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("DB lookup failed for user '%s': %s", username, e)
     
     if not user_doc:
         return None

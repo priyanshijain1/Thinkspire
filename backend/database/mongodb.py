@@ -6,6 +6,10 @@ from pathlib import Path
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
+from backend.services.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 # Load .env from backend directory
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -28,8 +32,8 @@ async def _connect():
         _collection = _db[COLLECTION_NAME]
         try:
             await _collection.create_index([("session_id", 1), ("timestamp", -1)])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to create MongoDB index: %s", e)
 
 
 async def get_collection():
@@ -58,6 +62,5 @@ async def log_interaction(
     }
     try:
         await coll.insert_one(doc)
-    except Exception:
-        # For now, swallow DB errors to avoid breaking API flow
-        pass
+    except Exception as e:
+        logger.error("Failed to log interaction for session %s: %s", session_id, e)

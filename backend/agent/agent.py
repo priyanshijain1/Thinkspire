@@ -20,10 +20,13 @@ from typing import Dict, Any, List, Optional
 import uuid
 import datetime as dt
 
-from sessions.redis_session import load_session, save_session
-from database.mongodb import log_interaction
-from services.ai_service import generate_response as ai_generate_response
-from services.error_handling import handle_ai_error, validate_message, get_fallback_response, check_rate_limit
+from backend.sessions.redis_session import load_session, save_session
+from backend.database.mongodb import log_interaction
+from backend.services.ai_service import generate_response as ai_generate_response
+from backend.services.error_handling import handle_ai_error, validate_message, get_fallback_response, check_rate_limit
+from backend.services.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 # ============== TEACHING STRATEGIES ==============
@@ -299,8 +302,8 @@ Guidelines:
             timestamp=dt.datetime.utcnow(),
             intent=teaching_mode,  # Log strategy used instead of raw intent
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error("Failed to log interaction for session %s: %s", session_id, e)
     
     # ===== 10. RETURN RESPONSE =====
     return {

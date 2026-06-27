@@ -6,6 +6,10 @@ from typing import Any, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 
+from backend.services.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 # Load .env from backend directory
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -29,10 +33,11 @@ async def get_client():
         import redis.asyncio as redis
         if _client is None:
             _client = redis.from_url(REDIS_URL, decode_responses=True)
-            # Test connection
             await _client.ping()
         return _client
-    except Exception:
+    except Exception as e:
+        if not _use_memory_fallback:
+            logger.warning("Redis unavailable, switching to memory fallback: %s", e)
         _use_memory_fallback = True
         return None
 
@@ -56,9 +61,9 @@ async def load_session(session_id: str) -> Optional[dict[str, Any]]:
         data = await client.get(f"session:{session_id}")
         if data:
             return json.loads(data)
-    except Exception:
-        pass
-    
+    except Exception as e:
+        logger.warning("Redis session load failed for %s: %s", session_id, e)
+
     return _memory_store.get(session_id)
 
 
@@ -75,8 +80,8 @@ async def save_session(session_id: str, session_data: dict[str, Any], ttl_days: 
         key = f"session:{session_id}"
         value = json.dumps(session_data)
         await client.set(key, value, ex=ttl_days * 24 * 60 * 60)
-    except Exception:
-        pass  # Already saved to memory
+    except Exception as e:
+        logger.warning("Redis session save failed for %s: %s", session_id, e)
 
 
 async def delete_session(session_id: str) -> None:
@@ -90,8 +95,8 @@ async def delete_session(session_id: str) -> None:
     
     try:
         await client.delete(f"session:{session_id}")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Redis session delete failed for %s: %s", session_id, e)
 
 
 async def session_exists(session_id: str) -> bool:
@@ -105,5 +110,6 @@ async def session_exists(session_id: str) -> bool:
     
     try:
         return await client.exists(f"session:{session_id}") > 0
-    except Exception:
+    except Exception as e:
+        logger.warning("Redis session check failed for %s: %s", session_id, e)
         return False

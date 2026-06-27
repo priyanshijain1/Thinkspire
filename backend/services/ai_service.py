@@ -15,6 +15,10 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
+from backend.services.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 # Load .env
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -51,8 +55,8 @@ async def generate_response(
             if result and not result.startswith("Error"):
                 return result
         except Exception as e:
-            pass  # Fall through to next provider
-    
+            logger.warning("Groq provider failed, falling through: %s", e)
+
     # 2. Try Gemini
     if GEMINI_API_KEY and GEMINI_API_KEY not in ("", "your_gemini_api_key_here"):
         try:
@@ -60,8 +64,8 @@ async def generate_response(
             if result and not result.startswith("Error"):
                 return result
         except Exception as e:
-            pass  # Fall through to next provider
-    
+            logger.warning("Gemini provider failed, falling through: %s", e)
+
     # 3. Try Ollama (local)
     if OLLAMA_URL:
         try:
@@ -69,10 +73,66 @@ async def generate_response(
             if result and not result.startswith("Error"):
                 return result
         except Exception as e:
-            pass  # Fall through to fallback
+            logger.warning("Ollama provider failed, falling through: %s", e)
     
     # 4. Fallback response
     return _fallback_response(user_message)
+
+
+async def generate_response_stream(
+    user_message: str,
+    conversation_history: Optional[list] = None,
+    system_prompt: Optional[str] = None,
+):
+    """Stream AI response token-by-token via async generator.
+
+    Yields:
+        str: Chunks of the AI response as they arrive.
+    """
+    if GROQ_API_KEY and GROQ_API_KEY not in ("", "your_groq_api_key_here"):
+        try:
+            async for chunk in _groq_stream(user_message, conversation_history, system_prompt):
+                yield chunk
+            return
+        except Exception as e:
+            logger.warning("Groq stream failed, falling to non-stream: %s", e)
+
+    # Fallback: generate full response and yield it as one chunk
+    full_response = await generate_response(user_message, conversation_history, system_prompt)
+    yield full_response
+
+
+async def _groq_stream(
+    user_message: str,
+    history: Optional[list],
+    system_prompt: Optional[str],
+):
+    """Stream response tokens from Groq API."""
+    from groq import AsyncGroq
+
+    client = AsyncGroq(api_key=GROQ_API_KEY)
+
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+
+    if history:
+        for msg in history:
+            messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+
+    messages.append({"role": "user", "content": user_message})
+
+    stream = await client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=messages,
+        temperature=0.7,
+        max_tokens=1024,
+        stream=True,
+    )
+
+    async for chunk in stream:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
 
 
 async def _groq_generate(user_message: str, history: Optional[list], system_prompt: Optional[str]) -> str:
